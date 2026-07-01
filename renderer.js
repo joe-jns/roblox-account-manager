@@ -274,13 +274,17 @@ function cellCheck(a) {
   const cb = document.createElement('input');
   cb.type = 'checkbox';
   cb.checked = selected.has(a.id);
-  cb.addEventListener('click', (e) => e.stopPropagation());
   cb.addEventListener('change', () => {
     if (cb.checked) selected.add(a.id); else selected.delete(a.id);
     const tr = cb.closest('tr');
     if (tr) tr.classList.toggle('selected', cb.checked);
     renderBulkBar();
     updateCheckAll();
+  });
+  // The whole cell is the hitbox and never opens the drawer.
+  td.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (e.target !== cb) { cb.checked = !cb.checked; cb.dispatchEvent(new Event('change')); }
   });
   td.appendChild(cb);
   return td;
@@ -692,6 +696,52 @@ async function doImport() {
   save();
   render();
   toast(`${incoming.length} account(s) imported`);
+  autoEnrich();
+}
+
+// ---- Auto-enrich (fetch Roblox info for all accounts, cached) --------------
+
+let enriching = false;
+const enrichAttempted = new Set(); // lowercased usernames tried this session
+
+async function autoEnrich() {
+  if (enriching) return;
+  const pending = accounts.filter(
+    (a) => a.pseudo.trim() && !a.userId && !enrichAttempted.has(a.pseudo.trim().toLowerCase())
+  );
+  if (pending.length === 0) return;
+
+  enriching = true;
+  const names = [...new Set(pending.map((a) => a.pseudo.trim()))];
+  names.forEach((n) => enrichAttempted.add(n.toLowerCase()));
+  let map = null;
+  try {
+    map = await window.api.enrichBatch(names);
+  } catch {
+    map = null;
+  }
+  enriching = false;
+  if (!map) return;
+
+  let changed = 0;
+  for (const a of accounts) {
+    if (a.userId || !a.pseudo.trim()) continue; // already cached
+    const r = map[a.pseudo.trim().toLowerCase()];
+    if (r && r.ok) {
+      a.userId = r.userId;
+      a.displayName = r.displayName;
+      a.created = r.created;
+      a.avatarUrl = r.avatarUrl;
+      a.robloxBanned = r.robloxBanned;
+      changed++;
+    }
+  }
+  if (changed) {
+    save();
+    render();
+    if (selectedId) renderDetail();
+    toast(`Roblox info fetched for ${changed} account${changed === 1 ? '' : 's'}`);
+  }
 }
 
 // ---- Bulk add (paste user:pass) -------------------------------------------
@@ -739,6 +789,7 @@ function doBulkAdd() {
   save();
   render();
   toast(`${created.length} account(s) added`);
+  autoEnrich();
 }
 
 // ---- Toast -----------------------------------------------------------------
@@ -774,12 +825,19 @@ document.querySelectorAll('.accounts-table th.sortable').forEach((th) => {
 });
 
 // Select all (visible)
-$('#check-all').addEventListener('change', (e) => {
+const checkAll = $('#check-all');
+checkAll.addEventListener('change', (e) => {
   const items = visibleAccounts();
   if (e.target.checked) items.forEach((a) => selected.add(a.id));
   else items.forEach((a) => selected.delete(a.id));
   renderTable();
   renderBulkBar();
+});
+// Whole header cell is the hitbox for select-all.
+document.querySelector('th.col-check').addEventListener('click', (e) => {
+  if (e.target === checkAll) return;
+  checkAll.checked = !checkAll.checked;
+  checkAll.dispatchEvent(new Event('change'));
 });
 
 // Bulk actions
@@ -844,4 +902,5 @@ document.addEventListener('keydown', (e) => {
     accounts = [];
   }
   render();
+  autoEnrich();
 })();

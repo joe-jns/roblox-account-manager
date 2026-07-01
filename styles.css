@@ -511,8 +511,9 @@ select { cursor: pointer; }
 
 /* ---- Checkbox column ----------------------------------------------------- */
 
-.col-check { width: 38px; text-align: center; }
-.accounts-table td.col-check { text-align: center; }
+.col-check { width: 42px; text-align: center; cursor: pointer; }
+.accounts-table td.col-check { text-align: center; cursor: pointer; }
+.accounts-table th.col-check { cursor: pointer; }
 .accounts-table tbody tr.selected td { background: rgba(77, 124, 254, 0.09); }
 
 /* Custom checkbox (dark theme). Switch inputs stay hidden via .switch input (opacity:0). */

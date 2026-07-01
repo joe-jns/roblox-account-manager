@@ -165,6 +165,68 @@ ipcMain.handle('roblox:enrich', async (_evt, username) => {
   };
 });
 
+// Batch version: resolve many usernames at once (1 lookup call per 100 names,
+// 1 avatar call per 100 ids, then per-user details with limited concurrency).
+// Returns a map keyed by lowercased username.
+ipcMain.handle('roblox:enrichBatch', async (_evt, usernames) => {
+  const names = (Array.isArray(usernames) ? usernames : [])
+    .map((n) => String(n || '').trim())
+    .filter(Boolean);
+  if (!names.length) return {};
+
+  const out = {};
+  for (let i = 0; i < names.length; i += 100) {
+    const chunk = names.slice(i, i + 100);
+    const lookup = await fetchJSON('https://users.roblox.com/v1/usernames/users', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ usernames: chunk, excludeBannedUsers: false }),
+    });
+    const data = lookup && Array.isArray(lookup.data) ? lookup.data : [];
+    const ids = [];
+    for (const u of data) {
+      const key = String(u.requestedUsername || u.name || '').toLowerCase();
+      if (!key) continue;
+      out[key] = {
+        ok: true,
+        userId: String(u.id),
+        displayName: u.displayName || u.name || '',
+        created: null,
+        robloxBanned: false,
+        avatarUrl: null,
+      };
+      ids.push(u.id);
+    }
+    if (ids.length) {
+      const thumb = await fetchJSON(
+        `https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${ids.join(',')}&size=48x48&format=Png&isCircular=false`
+      );
+      const byId = {};
+      for (const t of (thumb && Array.isArray(thumb.data) ? thumb.data : [])) byId[String(t.targetId)] = t.imageUrl;
+      for (const key of Object.keys(out)) {
+        const r = out[key];
+        if (r.userId && byId[r.userId]) r.avatarUrl = byId[r.userId];
+      }
+    }
+  }
+
+  // Per-user creation date + terminated flag, 5 at a time.
+  const entries = Object.values(out).filter((r) => r.userId);
+  const CONC = 5;
+  for (let i = 0; i < entries.length; i += CONC) {
+    const slice = entries.slice(i, i + CONC);
+    await Promise.all(slice.map(async (r) => {
+      const d = await fetchJSON(`https://users.roblox.com/v1/users/${r.userId}`);
+      if (d) {
+        r.created = d.created ? String(d.created).slice(0, 10) : null;
+        r.robloxBanned = !!d.isBanned;
+      }
+    }));
+  }
+
+  return out;
+});
+
 ipcMain.handle('open:url', async (_evt, url) => {
   if (typeof url === 'string' && /^https:\/\//.test(url)) {
     await shell.openExternal(url);

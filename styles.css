@@ -350,9 +350,7 @@ input, textarea, select, button { font-family: inherit; }
   inset: 0;
   background: rgba(6, 8, 11, 0.55);
   z-index: 40;
-  animation: fade-in 0.15s ease;
 }
-@keyframes fade-in { from { opacity: 0; } }
 
 .drawer {
   position: fixed;
@@ -732,7 +730,6 @@ input[type="checkbox"]:indeterminate::after {
   position: fixed; inset: 0;
   background: rgba(6, 8, 11, 0.55);
   z-index: 50;
-  animation: fade-in 0.15s ease;
 }
 .modal {
   position: fixed;

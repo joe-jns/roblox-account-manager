@@ -253,7 +253,7 @@ function renderTable() {
     tr.appendChild(boolCell(a.ageVerified));
     tr.appendChild(gamesCell(a.bannedGames));
     tr.appendChild(tagsCell(a.tags));
-    tr.appendChild(cell(a.dateAdded, 'cell-muted'));
+    tr.appendChild(cell(a.dateAdded, 'cell-muted cell-nowrap'));
     tr.appendChild(cellOpen(a));
     tr.addEventListener('click', () => openDrawer(a.id));
     bodyEl.appendChild(tr);
@@ -334,7 +334,10 @@ function boolCell(v) {
 function gamesCell(games) {
   if (!games.length) return cell('–', 'cell-muted');
   const td = document.createElement('td');
-  td.textContent = games.map((g) => g.name).join(', ');
+  td.className = 'cell-games';
+  const text = games.map((g) => g.name).join(', ');
+  td.textContent = text;
+  td.title = text;
   return td;
 }
 

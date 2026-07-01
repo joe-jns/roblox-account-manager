@@ -301,6 +301,13 @@ input, textarea, select, button { font-family: inherit; }
   white-space: nowrap;
 }
 
+.cell-nowrap { white-space: nowrap; }
+.cell-games {
+  max-width: 260px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .col-open { width: 94px; text-align: right; white-space: nowrap; }
 .open-btn { height: 28px; padding: 0 14px; font-size: 12.5px; }
 

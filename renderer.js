@@ -254,6 +254,7 @@ function renderTable() {
     tr.appendChild(gamesCell(a.bannedGames));
     tr.appendChild(tagsCell(a.tags));
     tr.appendChild(cell(a.dateAdded, 'cell-muted'));
+    tr.appendChild(cellOpen(a));
     tr.addEventListener('click', () => openDrawer(a.id));
     bodyEl.appendChild(tr);
   }
@@ -334,6 +335,24 @@ function gamesCell(games) {
   if (!games.length) return cell('–', 'cell-muted');
   const td = document.createElement('td');
   td.textContent = games.map((g) => g.name).join(', ');
+  return td;
+}
+
+function robloxLogin(a) {
+  if (!a.pseudo.trim() || !a.password) { toast('Needs a username and a password'); return; }
+  window.api.robloxLogin({ accountId: a.id, username: a.pseudo.trim(), password: a.password });
+  toast('Opening Roblox…');
+}
+
+function cellOpen(a) {
+  const td = document.createElement('td');
+  td.className = 'col-open';
+  const btn = document.createElement('button');
+  btn.className = 'btn open-btn';
+  btn.textContent = 'Open';
+  btn.title = 'Open Roblox logged in as this account';
+  btn.addEventListener('click', (e) => { e.stopPropagation(); robloxLogin(a); });
+  td.appendChild(btn);
   return td;
 }
 
@@ -439,6 +458,7 @@ function renderDetail() {
     if (!a.userId) { toast('Fetch Roblox info first'); return; }
     window.api.openUrl(`https://www.roblox.com/users/${a.userId}/profile`);
   });
+  node.querySelector('[data-act="login"]').addEventListener('click', () => robloxLogin(a));
 
   drawerBody.appendChild(node);
 }

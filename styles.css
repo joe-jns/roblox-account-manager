@@ -301,6 +301,9 @@ input, textarea, select, button { font-family: inherit; }
   white-space: nowrap;
 }
 
+.col-open { width: 94px; text-align: right; white-space: nowrap; }
+.open-btn { height: 28px; padding: 0 14px; font-size: 12.5px; }
+
 .table-empty {
   padding: 60px 20px;
   text-align: center;

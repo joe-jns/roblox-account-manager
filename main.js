@@ -257,6 +257,81 @@ ipcMain.handle('theme:set', (_evt, theme) => {
 
 ipcMain.handle('app:version', () => app.getVersion());
 
+// ---- Open a Roblox window logged in as an account --------------------------
+// Each account gets an isolated, persistent session partition, so once it is
+// logged in the first time (solving any captcha), it stays logged in.
+
+const loginWindows = new Map(); // accountId -> BrowserWindow
+
+const CHROME_UA =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
+
+function buildFillScript(username, password) {
+  return `(function(){
+    function setVal(el, val){
+      var proto = Object.getPrototypeOf(el);
+      var desc = Object.getOwnPropertyDescriptor(proto, 'value')
+        || Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+      desc.set.call(el, val);
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    var u = document.querySelector('#login-username, input[name="username"]');
+    var p = document.querySelector('#login-password, input[type="password"]');
+    if (u && p) {
+      setVal(u, ${JSON.stringify(username)});
+      setVal(p, ${JSON.stringify(password)});
+      var b = document.querySelector('#login-button, button[type="submit"]');
+      if (b) { setTimeout(function(){ b.click(); }, 200); }
+      return true;
+    }
+    return false;
+  })();`;
+}
+
+ipcMain.handle('roblox:login', async (_evt, payload) => {
+  const { accountId, username, password } = payload || {};
+  const key = String(accountId || 'default');
+
+  const existing = loginWindows.get(key);
+  if (existing && !existing.isDestroyed()) {
+    if (existing.isMinimized()) existing.restore();
+    existing.focus();
+    return true;
+  }
+
+  const w = new BrowserWindow({
+    width: 1200,
+    height: 820,
+    autoHideMenuBar: true,
+    backgroundColor: '#ffffff',
+    title: 'Roblox — ' + (username || ''),
+    webPreferences: {
+      partition: 'persist:roblox-' + key,
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+  loginWindows.set(key, w);
+  w.on('closed', () => loginWindows.delete(key));
+  w.webContents.setUserAgent(CHROME_UA);
+
+  let filled = false;
+  w.webContents.on('did-finish-load', async () => {
+    if (filled) return;
+    if (!/\/login/i.test(w.webContents.getURL())) return; // already logged in elsewhere
+    filled = true;
+    try {
+      await w.webContents.executeJavaScript(buildFillScript(username || '', password || ''), true);
+    } catch {
+      // page not ready / selectors changed — user can still log in manually
+    }
+  });
+
+  await w.loadURL('https://www.roblox.com/login', { userAgent: CHROME_UA });
+  return true;
+});
+
 ipcMain.handle('ui:confirm', async (_evt, { message, buttons }) => {
   const { response } = await dialog.showMessageBox(win, {
     type: 'question',

@@ -12,9 +12,30 @@
   --green: #3fb950;
   --amber: #d29922;
   --red: #f0553f;
+  --sel: rgba(77, 124, 254, 0.10);
+  --sel-strong: rgba(77, 124, 254, 0.35);
   --radius: 7px;
   --mono: "Cascadia Code", "Cascadia Mono", Consolas, ui-monospace, monospace;
   --sans: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+}
+
+/* Light theme — accent #E12028 */
+html.theme-light {
+  --bg: #ffffff;
+  --surface: #f6f7f9;
+  --surface-2: #eef0f3;
+  --surface-3: #e5e8ec;
+  --border: #e3e6ea;
+  --border-strong: #d3d7de;
+  --text: #1a1d23;
+  --muted: #5a616d;
+  --muted-2: #8b919d;
+  --focus: #E12028;
+  --green: #1a8f3c;
+  --amber: #b7791f;
+  --red: #d92d20;
+  --sel: rgba(225, 32, 40, 0.08);
+  --sel-strong: rgba(225, 32, 40, 0.22);
 }
 
 * { box-sizing: border-box; }
@@ -41,7 +62,7 @@ body {
 }
 
 input, textarea, select, button { font-family: inherit; }
-::selection { background: rgba(77, 124, 254, 0.35); }
+::selection { background: var(--sel-strong); }
 
 /* ---- Topbar -------------------------------------------------------------- */
 
@@ -100,11 +121,11 @@ input, textarea, select, button { font-family: inherit; }
 
 .btn-primary {
   background: var(--text);
-  color: #0c0e12;
+  color: var(--bg);
   border-color: var(--text);
   font-weight: 600;
 }
-.btn-primary:hover { background: #fff; }
+.btn-primary:hover { opacity: 0.88; }
 
 .btn-ghost { background: transparent; }
 .btn-ghost:hover { background: var(--surface-2); }
@@ -518,7 +539,7 @@ select { cursor: pointer; }
 .col-check { width: 42px; text-align: center; cursor: pointer; }
 .accounts-table td.col-check { text-align: center; cursor: pointer; }
 .accounts-table th.col-check { cursor: pointer; }
-.accounts-table tbody tr.selected td { background: rgba(77, 124, 254, 0.09); }
+.accounts-table tbody tr.selected td { background: var(--sel); }
 
 /* Custom checkbox (dark theme). Switch inputs stay hidden via .switch input (opacity:0). */
 input[type="checkbox"] {
@@ -669,7 +690,34 @@ input[type="checkbox"]:indeterminate::after {
   border-top: 1px solid var(--border);
 }
 
+/* ---- Light-theme component tweaks --------------------------------------- */
+
+html.theme-light .btn-danger { color: #b42318; border-color: #f1c9c4; background: transparent; }
+html.theme-light .btn-danger:hover { background: rgba(217, 45, 32, 0.10); border-color: var(--red); }
+html.theme-light .rb-badge { color: #b42318; background: rgba(217, 45, 32, 0.10); border-color: #f1c9c4; }
+html.theme-light .switch input:checked + .track { background: rgba(26, 143, 60, 0.18); }
+html.theme-light .drawer { box-shadow: -12px 0 40px rgba(0, 0, 0, 0.12); }
+html.theme-light .modal { box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18); }
+html.theme-light .toast { box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15); }
+html.theme-light .drawer-backdrop,
+html.theme-light .modal-backdrop { background: rgba(20, 24, 30, 0.35); }
+
+/* ---- Settings ------------------------------------------------------------ */
+
+.set-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+.set-row:last-child { border-bottom: none; }
+.set-label { font-size: 13.5px; font-weight: 500; }
+.set-desc { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.btn.icon-only { padding: 0; width: 32px; font-size: 15px; }
+
 /* Scrollbars */
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 6px; border: 2px solid var(--surface); }
-::-webkit-scrollbar-thumb:hover { background: #414956; }
+::-webkit-scrollbar-thumb:hover { background: var(--muted-2); }

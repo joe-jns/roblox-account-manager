@@ -9,5 +9,7 @@ contextBridge.exposeInMainWorld('api', {
   enrich: (username) => ipcRenderer.invoke('roblox:enrich', username),
   enrichBatch: (usernames) => ipcRenderer.invoke('roblox:enrichBatch', usernames),
   openUrl: (url) => ipcRenderer.invoke('open:url', url),
+  setTheme: (theme) => ipcRenderer.invoke('theme:set', theme),
+  version: () => ipcRenderer.invoke('app:version'),
   confirm: (message, buttons) => ipcRenderer.invoke('ui:confirm', { message, buttons }),
 });

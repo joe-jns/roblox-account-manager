@@ -241,6 +241,22 @@ ipcMain.handle('open:url', async (_evt, url) => {
   return false;
 });
 
+// Recolor the native window controls to match the current theme (Windows).
+ipcMain.handle('theme:set', (_evt, theme) => {
+  if (!win || process.platform !== 'win32') return;
+  try {
+    if (theme === 'light') {
+      win.setTitleBarOverlay({ color: '#f6f7f9', symbolColor: '#1a1d23', height: 52 });
+    } else {
+      win.setTitleBarOverlay({ color: '#16191f', symbolColor: '#c8ccd4', height: 52 });
+    }
+  } catch {
+    // titleBarOverlay not available on this platform/config
+  }
+});
+
+ipcMain.handle('app:version', () => app.getVersion());
+
 ipcMain.handle('ui:confirm', async (_evt, { message, buttons }) => {
   const { response } = await dialog.showMessageBox(win, {
     type: 'question',

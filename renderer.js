@@ -803,9 +803,53 @@ function toast(msg) {
   toastTimer = setTimeout(() => { el.hidden = true; }, 2000);
 }
 
+// ---- Settings --------------------------------------------------------------
+
+const SETTINGS_KEY = 'ram-settings';
+
+function loadSettings() {
+  try { return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}; } catch { return {}; }
+}
+function saveSettings() {
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+}
+const settings = loadSettings();
+if (!settings.theme) settings.theme = 'dark';
+
+function applyTheme(theme) {
+  document.documentElement.classList.toggle('theme-light', theme === 'light');
+  window.api.setTheme(theme);
+  document.querySelectorAll('#set-theme button').forEach((b) => b.classList.toggle('active', b.dataset.value === theme));
+}
+
+function openSettings() {
+  document.querySelectorAll('#set-theme button').forEach((b) => b.classList.toggle('active', b.dataset.value === settings.theme));
+  window.api.version().then((v) => { $('#set-version').textContent = 'v' + v; }).catch(() => {});
+  $('#settings-backdrop').hidden = false;
+  $('#settings-modal').hidden = false;
+}
+
+function closeSettings() {
+  $('#settings-backdrop').hidden = true;
+  $('#settings-modal').hidden = true;
+}
+
+applyTheme(settings.theme);
+
 // ---- Wiring ----------------------------------------------------------------
 
 $('#search').addEventListener('input', (e) => { search = e.target.value; renderTable(); });
+
+$('#btn-settings').addEventListener('click', openSettings);
+$('#settings-close').addEventListener('click', closeSettings);
+$('#settings-backdrop').addEventListener('click', closeSettings);
+$('#set-theme').addEventListener('click', (e) => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  settings.theme = btn.dataset.value;
+  saveSettings();
+  applyTheme(settings.theme);
+});
 
 $('#btn-new').addEventListener('click', newAccount);
 $('#btn-export').addEventListener('click', doExport);
@@ -887,7 +931,8 @@ $('#modal-backdrop').addEventListener('click', closeBulk);
 // Keyboard
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
-  if (!$('#bulk-modal').hidden) closeBulk();
+  if (!$('#settings-modal').hidden) closeSettings();
+  else if (!$('#bulk-modal').hidden) closeBulk();
   else if (drawerEl.classList.contains('open')) closeDrawer();
 });
 

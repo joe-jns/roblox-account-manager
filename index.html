@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline';" />
@@ -11,50 +11,62 @@
     <div class="brand">
       <span class="brand-mark"></span>
       <span class="brand-name">Account Manager</span>
-      <span class="count" id="count">0 comptes</span>
+      <span class="count" id="count">0 accounts</span>
     </div>
     <div class="topbar-actions">
-      <button class="btn" id="btn-import">Importer</button>
-      <button class="btn" id="btn-export">Exporter</button>
-      <button class="btn btn-primary" id="btn-new">+ Nouveau</button>
+      <button class="btn" id="btn-import">Import</button>
+      <button class="btn" id="btn-export">Export</button>
+      <button class="btn btn-primary" id="btn-new">+ New</button>
     </div>
   </header>
 
-  <div class="toolbar">
-    <input type="text" id="search" placeholder="Rechercher un pseudo, une étiquette…" autocomplete="off" />
-    <div class="filters" id="filters">
-      <button class="chip" data-filter="status" data-value="Actif">Actif</button>
-      <button class="chip" data-filter="status" data-value="Averti">Averti</button>
-      <button class="chip" data-filter="status" data-value="Banni">Banni</button>
-      <button class="chip" data-filter="voice" data-value="on">Voice</button>
-      <button class="chip" data-filter="verified" data-value="on">Âge vérifié</button>
-    </div>
-  </div>
+  <div class="body">
+    <aside class="sidebar">
+      <div class="side-block">
+        <div class="side-head">Views</div>
+        <nav id="side-status"></nav>
+      </div>
+      <div class="side-block">
+        <div class="side-head">Attributes</div>
+        <nav id="side-attrs"></nav>
+      </div>
+      <div class="side-block side-block-tags">
+        <div class="side-head">Tags</div>
+        <div id="side-tags"></div>
+      </div>
+    </aside>
 
-  <main class="table-wrap">
-    <table class="accounts-table">
-      <thead>
-        <tr>
-          <th class="col-status">Statut</th>
-          <th>Pseudo</th>
-          <th>Âge</th>
-          <th class="center">Voice</th>
-          <th class="center">Vérifié</th>
-          <th>Jeux bannis</th>
-          <th>Étiquettes</th>
-          <th>Ajouté le</th>
-        </tr>
-      </thead>
-      <tbody id="table-body"></tbody>
-    </table>
-    <div class="table-empty" id="table-empty" hidden></div>
-  </main>
+    <main class="main">
+      <div class="toolbar">
+        <input type="text" id="search" placeholder="Search a username or a tag…" autocomplete="off" />
+        <span class="active-filter" id="active-filter"></span>
+      </div>
+      <div class="table-wrap">
+        <table class="accounts-table">
+          <thead>
+            <tr>
+              <th class="col-status">Status</th>
+              <th>Username</th>
+              <th>Age</th>
+              <th class="center">Voice</th>
+              <th class="center">Verified</th>
+              <th>Banned games</th>
+              <th>Tags</th>
+              <th>Added</th>
+            </tr>
+          </thead>
+          <tbody id="table-body"></tbody>
+        </table>
+        <div class="table-empty" id="table-empty" hidden></div>
+      </div>
+    </main>
+  </div>
 
   <div class="drawer-backdrop" id="backdrop" hidden></div>
   <aside class="drawer" id="drawer" aria-hidden="true">
     <div class="drawer-head">
-      <span class="drawer-title">Fiche du compte</span>
-      <button class="icon-btn" id="drawer-close" title="Fermer">Fermer</button>
+      <span class="drawer-title">Account details</span>
+      <button class="icon-btn" id="drawer-close" title="Close">Close</button>
     </div>
     <div class="drawer-body" id="drawer-body"></div>
   </aside>
@@ -62,43 +74,43 @@
   <template id="tpl-detail">
     <div class="detail-inner">
       <div class="detail-head">
-        <input class="pseudo-field" type="text" data-field="pseudo" placeholder="Pseudo Roblox" spellcheck="false" autocomplete="off" />
+        <input class="pseudo-field" type="text" data-field="pseudo" placeholder="Roblox username" spellcheck="false" autocomplete="off" />
         <div class="detail-head-actions">
-          <button class="btn btn-ghost" data-act="copy-pseudo">Copier pseudo</button>
-          <button class="btn btn-danger" data-act="delete">Supprimer</button>
+          <button class="btn btn-ghost" data-act="copy-pseudo">Copy username</button>
+          <button class="btn btn-danger" data-act="delete">Delete</button>
         </div>
       </div>
 
       <div class="grid">
         <label class="field field-wide">
-          <span class="label">Mot de passe</span>
+          <span class="label">Password</span>
           <div class="pw-row">
             <input class="mono" type="password" data-field="password" spellcheck="false" autocomplete="off" />
-            <button class="icon-btn" data-act="toggle-pw" title="Afficher / masquer">Voir</button>
-            <button class="icon-btn" data-act="copy-pw" title="Copier">Copier</button>
+            <button class="icon-btn" data-act="toggle-pw" title="Show / hide">Show</button>
+            <button class="icon-btn" data-act="copy-pw" title="Copy">Copy</button>
           </div>
         </label>
 
         <label class="field">
-          <span class="label">Tranche d'âge</span>
+          <span class="label">Age range</span>
           <select data-field="ageRange">
-            <option value="Inconnu">Inconnu</option>
+            <option value="Unknown">Unknown</option>
             <option value="18-20">18-20</option>
             <option value="21+">21+</option>
           </select>
         </label>
 
         <label class="field">
-          <span class="label">Date d'ajout</span>
+          <span class="label">Added on</span>
           <input type="date" data-field="dateAdded" />
         </label>
 
         <div class="field field-wide">
-          <span class="label">Statut du compte</span>
+          <span class="label">Account status</span>
           <div class="segmented" data-field="status">
-            <button data-value="Actif">Actif</button>
-            <button data-value="Averti">Averti</button>
-            <button data-value="Banni">Banni</button>
+            <button data-value="Active">Active</button>
+            <button data-value="Warned">Warned</button>
+            <button data-value="Banned">Banned</button>
           </div>
         </div>
 
@@ -113,30 +125,30 @@
             <label class="switch">
               <input type="checkbox" data-field="ageVerified" />
               <span class="track"></span>
-              <span class="switch-label">Âge vérifié</span>
+              <span class="switch-label">Age verified</span>
             </label>
           </div>
         </div>
 
         <div class="field field-wide">
-          <span class="label">Jeux bannis <span class="label-hint">— tape l'ID du jeu, le nom est récupéré</span></span>
+          <span class="label">Banned games <span class="label-hint">— type the game ID, the name is fetched</span></span>
           <div class="tag-input" data-field="bannedGames">
             <div class="tags"></div>
-            <input type="text" placeholder="ID du jeu (ex: 14034093693) + Entrée" spellcheck="false" autocomplete="off" />
+            <input type="text" placeholder="Game ID (e.g. 14034093693) + Enter" spellcheck="false" autocomplete="off" />
           </div>
         </div>
 
         <div class="field field-wide">
-          <span class="label">Étiquettes</span>
+          <span class="label">Tags</span>
           <div class="tag-input" data-field="tags">
             <div class="tags"></div>
-            <input type="text" placeholder="main, alt, farm… + Entrée" spellcheck="false" autocomplete="off" />
+            <input type="text" placeholder="main, alt, farm… + Enter" spellcheck="false" autocomplete="off" />
           </div>
         </div>
 
         <label class="field field-wide">
           <span class="label">Notes</span>
-          <textarea data-field="notes" rows="4" placeholder="Notes libres…"></textarea>
+          <textarea data-field="notes" rows="4" placeholder="Free notes…"></textarea>
         </label>
       </div>
     </div>

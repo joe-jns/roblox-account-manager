@@ -5,7 +5,7 @@
 let accounts = [];
 let selectedId = null;
 let search = '';
-const filters = { status: null, voice: false, verified: false };
+const filters = { view: 'all', voice: false, verified: false, tag: null };
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const bodyEl = $('#table-body');
@@ -14,11 +14,17 @@ const countEl = $('#count');
 const drawerEl = $('#drawer');
 const backdropEl = $('#backdrop');
 const drawerBody = $('#drawer-body');
+const sideStatus = $('#side-status');
+const sideAttrs = $('#side-attrs');
+const sideTags = $('#side-tags');
+const activeFilterEl = $('#active-filter');
 
 // ---- Model helpers ---------------------------------------------------------
 
-const STATUSES = ['Actif', 'Averti', 'Banni'];
-const AGES = ['Inconnu', '18-20', '21+'];
+const STATUSES = ['Active', 'Warned', 'Banned'];
+const AGES = ['Unknown', '18-20', '21+'];
+const STATUS_MIGRATE = { Actif: 'Active', Averti: 'Warned', Banni: 'Banned' };
+const AGE_MIGRATE = { Inconnu: 'Unknown' };
 
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
@@ -32,15 +38,17 @@ function normalizeGame(g) {
 }
 
 function normalize(a) {
+  const status = STATUS_MIGRATE[a.status] || (STATUSES.includes(a.status) ? a.status : 'Active');
+  const ageRange = AGE_MIGRATE[a.ageRange] || (AGES.includes(a.ageRange) ? a.ageRange : 'Unknown');
   return {
     id: a.id || crypto.randomUUID(),
     pseudo: a.pseudo || '',
     password: a.password || '',
-    ageRange: AGES.includes(a.ageRange) ? a.ageRange : 'Inconnu',
+    ageRange,
     voiceChat: !!a.voiceChat,
     ageVerified: !!a.ageVerified,
     bannedGames: (Array.isArray(a.bannedGames) ? a.bannedGames : []).map(normalizeGame),
-    status: STATUSES.includes(a.status) ? a.status : 'Actif',
+    status,
     tags: Array.isArray(a.tags) ? a.tags : [],
     dateAdded: a.dateAdded || todayISO(),
     notes: a.notes || '',
@@ -57,7 +65,7 @@ let saveTimer = null;
 function save() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
-    window.api.save(accounts).catch((err) => toast('Erreur de sauvegarde : ' + err.message));
+    window.api.save(accounts).catch((err) => toast('Save error: ' + err.message));
   }, 250);
 }
 
@@ -66,9 +74,10 @@ function save() {
 function visibleAccounts() {
   const q = search.trim().toLowerCase();
   return accounts.filter((a) => {
-    if (filters.status && a.status !== filters.status) return false;
+    if (filters.view !== 'all' && a.status !== filters.view) return false;
     if (filters.voice && !a.voiceChat) return false;
     if (filters.verified && !a.ageVerified) return false;
+    if (filters.tag && !a.tags.includes(filters.tag)) return false;
     if (q) {
       const hay = (a.pseudo + ' ' + a.tags.join(' ')).toLowerCase();
       if (!hay.includes(q)) return false;
@@ -77,16 +86,123 @@ function visibleAccounts() {
   });
 }
 
-// ---- Table rendering -------------------------------------------------------
+function render() {
+  renderSidebar();
+  renderTable();
+  renderActiveFilter();
+}
+
+// ---- Sidebar ---------------------------------------------------------------
+
+function sideItem({ label, count, active, dotClass, onClick }) {
+  const btn = document.createElement('button');
+  btn.className = 'side-item' + (active ? ' active' : '');
+  if (dotClass) {
+    const dot = document.createElement('span');
+    dot.className = 'dot ' + dotClass;
+    btn.appendChild(dot);
+  }
+  const lab = document.createElement('span');
+  lab.className = 'side-label';
+  lab.textContent = label;
+  btn.appendChild(lab);
+  const c = document.createElement('span');
+  c.className = 'side-count';
+  c.textContent = count;
+  btn.appendChild(c);
+  btn.addEventListener('click', onClick);
+  return btn;
+}
+
+function renderSidebar() {
+  const byStatus = { Active: 0, Warned: 0, Banned: 0 };
+  let voice = 0;
+  let verified = 0;
+  const tagCounts = new Map();
+  for (const a of accounts) {
+    byStatus[a.status] = (byStatus[a.status] || 0) + 1;
+    if (a.voiceChat) voice++;
+    if (a.ageVerified) verified++;
+    for (const t of a.tags) tagCounts.set(t, (tagCounts.get(t) || 0) + 1);
+  }
+
+  // Views
+  sideStatus.innerHTML = '';
+  sideStatus.appendChild(sideItem({
+    label: 'All accounts', count: accounts.length, active: filters.view === 'all',
+    onClick: () => setView('all'),
+  }));
+  for (const s of STATUSES) {
+    sideStatus.appendChild(sideItem({
+      label: s, count: byStatus[s] || 0, active: filters.view === s, dotClass: s,
+      onClick: () => setView(s),
+    }));
+  }
+
+  // Attributes
+  sideAttrs.innerHTML = '';
+  sideAttrs.appendChild(sideItem({
+    label: 'Voice enabled', count: voice, active: filters.voice,
+    onClick: () => { filters.voice = !filters.voice; render(); },
+  }));
+  sideAttrs.appendChild(sideItem({
+    label: 'Age verified', count: verified, active: filters.verified,
+    onClick: () => { filters.verified = !filters.verified; render(); },
+  }));
+
+  // Tags
+  sideTags.innerHTML = '';
+  const tags = [...tagCounts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  if (tags.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'side-empty';
+    empty.textContent = 'No tags yet';
+    sideTags.appendChild(empty);
+  } else {
+    for (const [tag, count] of tags) {
+      sideTags.appendChild(sideItem({
+        label: tag, count, active: filters.tag === tag,
+        onClick: () => { filters.tag = filters.tag === tag ? null : tag; render(); },
+      }));
+    }
+  }
+}
+
+function setView(v) {
+  filters.view = v;
+  render();
+}
+
+function renderActiveFilter() {
+  const parts = [];
+  if (filters.voice) parts.push('Voice');
+  if (filters.verified) parts.push('Verified');
+  if (filters.tag) parts.push('#' + filters.tag);
+  if (parts.length === 0) { activeFilterEl.innerHTML = ''; return; }
+  activeFilterEl.innerHTML = '';
+  activeFilterEl.append(document.createTextNode('Filtered by '));
+  const b = document.createElement('b');
+  b.textContent = parts.join(' · ');
+  activeFilterEl.appendChild(b);
+  const clear = document.createElement('span');
+  clear.className = 'clear';
+  clear.textContent = 'clear';
+  clear.addEventListener('click', () => {
+    filters.voice = false; filters.verified = false; filters.tag = null; render();
+  });
+  activeFilterEl.appendChild(clear);
+}
+
+// ---- Table -----------------------------------------------------------------
 
 function renderTable() {
   const items = visibleAccounts();
-  countEl.textContent = `${accounts.length} compte${accounts.length > 1 ? 's' : ''}`;
+  countEl.textContent = `${accounts.length} account${accounts.length === 1 ? '' : 's'}`;
   bodyEl.innerHTML = '';
 
   if (items.length === 0) {
     emptyEl.hidden = false;
-    emptyEl.textContent = accounts.length === 0 ? 'Aucun compte. Clique sur + Nouveau.' : 'Aucun résultat pour ce filtre.';
+    emptyEl.textContent = accounts.length === 0 ? 'No accounts yet. Click + New.' : 'No accounts match this filter.';
     return;
   }
   emptyEl.hidden = true;
@@ -95,8 +211,8 @@ function renderTable() {
     const tr = document.createElement('tr');
     tr.dataset.id = a.id;
     tr.appendChild(cellStatus(a));
-    tr.appendChild(cell(a.pseudo || '(sans pseudo)', 'cell-pseudo'));
-    tr.appendChild(cell(a.ageRange, a.ageRange === 'Inconnu' ? 'cell-muted' : ''));
+    tr.appendChild(cell(a.pseudo || '(no username)', 'cell-pseudo'));
+    tr.appendChild(cell(a.ageRange, a.ageRange === 'Unknown' ? 'cell-muted' : ''));
     tr.appendChild(boolCell(a.voiceChat));
     tr.appendChild(boolCell(a.ageVerified));
     tr.appendChild(gamesCell(a.bannedGames));
@@ -197,10 +313,10 @@ function renderDetail() {
   node.querySelector('[data-act="toggle-pw"]').addEventListener('click', (e) => {
     const shown = pwInput.type === 'text';
     pwInput.type = shown ? 'password' : 'text';
-    e.target.textContent = shown ? 'Voir' : 'Cacher';
+    e.target.textContent = shown ? 'Show' : 'Hide';
   });
-  node.querySelector('[data-act="copy-pw"]').addEventListener('click', () => copy(a.password, 'Mot de passe copié'));
-  node.querySelector('[data-act="copy-pseudo"]').addEventListener('click', () => copy(a.pseudo, 'Pseudo copié'));
+  node.querySelector('[data-act="copy-pw"]').addEventListener('click', () => copy(a.password, 'Password copied'));
+  node.querySelector('[data-act="copy-pseudo"]').addEventListener('click', () => copy(a.pseudo, 'Username copied'));
   node.querySelector('[data-act="delete"]').addEventListener('click', () => deleteAccount(a.id));
 
   drawerBody.appendChild(node);
@@ -211,7 +327,7 @@ function renderDetail() {
 function onEdit(a, field, value) {
   a[field] = value;
   save();
-  renderTable();
+  render();
 }
 
 function bindText(root, field, a) {
@@ -282,7 +398,7 @@ function bindTags(root, field, a) {
   paint();
 }
 
-// Banned games: entrer un ID -> nom officiel récupéré via l'API Roblox.
+// Banned games: enter an ID -> official name fetched from the Roblox API.
 function bindGames(root, a) {
   const wrap = root.querySelector('[data-field="bannedGames"]');
   const tagsBox = wrap.querySelector('.tags');
@@ -306,7 +422,7 @@ function bindGames(root, a) {
     });
   }
 
-  function commit() { save(); renderTable(); }
+  function commit() { save(); render(); }
 
   async function add() {
     const val = input.value.trim();
@@ -316,7 +432,7 @@ function bindGames(root, a) {
     if (/^\d+$/.test(val)) {
       if (a.bannedGames.some((g) => g.id === val)) return;
       input.disabled = true;
-      input.placeholder = 'récupération du nom…';
+      input.placeholder = 'fetching name…';
       const r = await window.api.resolveGame(val);
       input.disabled = false;
       input.placeholder = placeholder;
@@ -324,8 +440,8 @@ function bindGames(root, a) {
       if (r.ok) {
         a.bannedGames.push({ id: r.id, name: r.name });
       } else {
-        a.bannedGames.push({ id: val, name: 'Jeu ' + val });
-        toast('Nom introuvable pour cet ID — ajouté quand même');
+        a.bannedGames.push({ id: val, name: 'Game ' + val });
+        toast('No name found for this ID — added anyway');
       }
     } else {
       if (a.bannedGames.some((g) => g.name === val)) return;
@@ -349,7 +465,7 @@ function removeBtn(onClick) {
   const x = document.createElement('button');
   x.type = 'button';
   x.textContent = '×';
-  x.title = 'Retirer';
+  x.title = 'Remove';
   x.addEventListener('click', (e) => { e.stopPropagation(); onClick(); });
   return x;
 }
@@ -360,7 +476,7 @@ function newAccount() {
   const a = normalize({ pseudo: '' });
   accounts.unshift(a);
   save();
-  renderTable();
+  render();
   openDrawer(a.id);
   const field = drawerBody.querySelector('[data-field="pseudo"]');
   if (field) field.focus();
@@ -368,14 +484,14 @@ function newAccount() {
 
 async function deleteAccount(id) {
   const a = accounts.find((x) => x.id === id);
-  const name = a && a.pseudo ? `« ${a.pseudo} »` : 'ce compte';
-  const res = await window.api.confirm(`Supprimer ${name} ? Cette action est définitive.`, ['Supprimer', 'Annuler']);
+  const name = a && a.pseudo ? `"${a.pseudo}"` : 'this account';
+  const res = await window.api.confirm(`Delete ${name}? This cannot be undone.`, ['Delete', 'Cancel']);
   if (res !== 0) return;
   accounts = accounts.filter((x) => x.id !== id);
   save();
   closeDrawer();
-  renderTable();
-  toast('Compte supprimé');
+  render();
+  toast('Account deleted');
 }
 
 async function copy(text, msg) {
@@ -383,26 +499,26 @@ async function copy(text, msg) {
     await navigator.clipboard.writeText(text || '');
     toast(msg);
   } catch {
-    toast('Copie impossible');
+    toast('Copy failed');
   }
 }
 
 async function doExport() {
   const res = await window.api.export(accounts);
-  if (res.ok) toast('Exporté');
+  if (res.ok) toast('Exported');
 }
 
 async function doImport() {
   const res = await window.api.import();
   if (!res.ok) { if (res.error) toast(res.error); return; }
   const incoming = res.accounts.map(normalize);
-  if (incoming.length === 0) { toast('Fichier vide'); return; }
+  if (incoming.length === 0) { toast('Empty file'); return; }
 
   let mode = 0;
   if (accounts.length > 0) {
     mode = await window.api.confirm(
-      `Importer ${incoming.length} compte(s). Fusionner avec les comptes actuels ou tout remplacer ?`,
-      ['Fusionner', 'Remplacer', 'Annuler']
+      `Import ${incoming.length} account(s). Merge with your current accounts or replace them all?`,
+      ['Merge', 'Replace', 'Cancel']
     );
     if (mode === 2) return;
   }
@@ -417,8 +533,8 @@ async function doImport() {
   }
   closeDrawer();
   save();
-  renderTable();
-  toast(`${incoming.length} compte(s) importé(s)`);
+  render();
+  toast(`${incoming.length} account(s) imported`);
 }
 
 // ---- Toast -----------------------------------------------------------------
@@ -436,22 +552,6 @@ function toast(msg) {
 
 $('#search').addEventListener('input', (e) => { search = e.target.value; renderTable(); });
 
-$('#filters').addEventListener('click', (e) => {
-  const chip = e.target.closest('.chip');
-  if (!chip) return;
-  const { filter, value } = chip.dataset;
-  if (filter === 'status') {
-    filters.status = filters.status === value ? null : value;
-    document.querySelectorAll('.chip[data-filter="status"]').forEach((c) => {
-      c.classList.toggle('active', c.dataset.value === filters.status);
-    });
-  } else {
-    filters[filter] = !filters[filter];
-    chip.classList.toggle('active', filters[filter]);
-  }
-  renderTable();
-});
-
 $('#btn-new').addEventListener('click', newAccount);
 $('#btn-export').addEventListener('click', doExport);
 $('#btn-import').addEventListener('click', doImport);
@@ -466,8 +566,8 @@ document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && drawerEl
     const raw = await window.api.load();
     accounts = raw.map(normalize);
   } catch (err) {
-    toast('Erreur de chargement : ' + err.message);
+    toast('Load error: ' + err.message);
     accounts = [];
   }
-  renderTable();
+  render();
 })();

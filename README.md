@@ -1,28 +1,37 @@
 # Roblox Account Manager
 
-Gestionnaire local de comptes Roblox (app desktop Electron). 100 % hors-ligne,
-aucune donnée n'est envoyée sur Internet.
+A local desktop app (Electron) to manage your Roblox accounts. 100% offline —
+no data is ever sent to the internet.
 
-## Champs par compte
-Pseudo · Mot de passe (masqué) · Tranche d'âge · Voice chat · Âge vérifié ·
-Jeux bannis · Statut (Actif / Averti / Banni) · Étiquettes · Date d'ajout · Notes.
+## Per-account fields
+Username · Password (masked) · Age range · Voice chat · Age verified ·
+Banned games · Status (Active / Warned / Banned) · Tags · Date added · Notes.
 
-## Lancer en développement
+The left sidebar gives you live-count views (All / Active / Warned / Banned),
+attribute filters (Voice / Age verified) and a clickable tag list.
+
+## Install (users)
+Download the latest **Setup .exe** from the
+[Releases page](https://github.com/joe-jns/roblox-account-manager/releases/latest)
+and run it. No admin required. Since the app is not code-signed, Windows may show
+"Windows protected your PC" on first launch → click **More info → Run anyway**.
+
+The app updates itself automatically from GitHub Releases on launch.
+
+## Run in development
 ```bash
 npm install
 npm start
 ```
 
-## Générer un .exe portable
+## Build the installer
 ```bash
-npm run dist
+npm run dist       # local installer only, in dist/
+npm run release    # build + publish a GitHub Release (needs GH_TOKEN)
 ```
-Le `.exe` est produit dans `dist/`.
 
-## Où sont mes données ?
-Un fichier `accounts.json` dans le dossier de données de l'app
-(`%APPDATA%/roblox-account-manager/` sous Windows). Utilise **Exporter**
-pour en faire une sauvegarde ailleurs.
-
-> Les mots de passe sont stockés en clair dans ce fichier (choix assumé pour
-> un usage perso sur ta machine). Ne partage pas `accounts.json`.
+## Where is my data?
+An `accounts.json` file in the app data folder
+(`%APPDATA%/roblox-account-manager/` on Windows). Use **Export** to back it up
+elsewhere. Passwords are stored in plain text in that file (deliberate choice for
+personal use on your own machine) — do not share `accounts.json`.

@@ -29,9 +29,8 @@ function createWindow() {
 app.whenReady().then(() => {
   createWindow();
 
-  // Auto-update depuis les Releases GitHub (uniquement en version installée).
-  // Vérifie au lancement ; si une mise à jour est trouvée, elle se télécharge
-  // et s'installe à la fermeture de l'app.
+  // Auto-update from GitHub Releases (only in the installed/packaged build).
+  // Checks on launch; if an update is found it downloads and installs on quit.
   if (app.isPackaged) {
     autoUpdater.checkForUpdatesAndNotify().catch(() => {});
   }
@@ -53,7 +52,7 @@ ipcMain.handle('accounts:load', async () => {
     const data = JSON.parse(raw);
     return Array.isArray(data) ? data : [];
   } catch (err) {
-    if (err.code === 'ENOENT') return []; // premier lancement
+    if (err.code === 'ENOENT') return []; // first launch, no data file yet
     throw err;
   }
 });
@@ -68,7 +67,7 @@ ipcMain.handle('accounts:save', async (_evt, accounts) => {
 
 ipcMain.handle('accounts:export', async (_evt, accounts) => {
   const { canceled, filePath } = await dialog.showSaveDialog(win, {
-    title: 'Exporter les comptes',
+    title: 'Export accounts',
     defaultPath: 'roblox-accounts-backup.json',
     filters: [{ name: 'JSON', extensions: ['json'] }],
   });
@@ -79,7 +78,7 @@ ipcMain.handle('accounts:export', async (_evt, accounts) => {
 
 ipcMain.handle('accounts:import', async () => {
   const { canceled, filePaths } = await dialog.showOpenDialog(win, {
-    title: 'Importer des comptes',
+    title: 'Import accounts',
     properties: ['openFile'],
     filters: [{ name: 'JSON', extensions: ['json'] }],
   });
@@ -89,9 +88,9 @@ ipcMain.handle('accounts:import', async () => {
   try {
     data = JSON.parse(raw);
   } catch {
-    return { ok: false, error: 'Fichier JSON invalide.' };
+    return { ok: false, error: 'Invalid JSON file.' };
   }
-  if (!Array.isArray(data)) return { ok: false, error: 'Format inattendu (tableau attendu).' };
+  if (!Array.isArray(data)) return { ok: false, error: 'Unexpected format (an array was expected).' };
   return { ok: true, accounts: data };
 });
 
@@ -111,22 +110,22 @@ async function fetchJSON(url) {
   }
 }
 
-// Accepte un place ID (ex: 14034093693) ou un universe ID, renvoie le nom officiel.
+// Accepts a place ID (e.g. 14034093693) or a universe ID, returns the official name.
 ipcMain.handle('game:resolve', async (_evt, rawId) => {
   const id = String(rawId).trim();
-  if (!/^\d+$/.test(id)) return { ok: false, error: 'ID invalide' };
+  if (!/^\d+$/.test(id)) return { ok: false, error: 'Invalid ID' };
 
   // 1) place ID -> universe ID
   let universeId = null;
   const uni = await fetchJSON(`https://apis.roblox.com/universes/v1/places/${id}/universe`);
   if (uni && uni.universeId) universeId = uni.universeId;
 
-  // 2) sinon on tente l'ID tel quel comme universe ID
+  // 2) otherwise try the ID as-is as a universe ID
   const candidate = universeId || id;
   const games = await fetchJSON(`https://games.roblox.com/v1/games?universeIds=${candidate}`);
   const name = games && Array.isArray(games.data) && games.data[0] && games.data[0].name;
   if (name) return { ok: true, id, name };
-  return { ok: false, error: 'Jeu introuvable' };
+  return { ok: false, error: 'Game not found' };
 });
 
 ipcMain.handle('ui:confirm', async (_evt, { message, buttons }) => {

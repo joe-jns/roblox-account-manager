@@ -50,11 +50,15 @@ input, textarea, select, button { font-family: inherit; }
   align-items: center;
   justify-content: space-between;
   height: 52px;
-  padding: 0 16px;
+  padding: 0 146px 0 16px; /* right space reserved for the native window controls */
   border-bottom: 1px solid var(--border);
   background: var(--surface);
   flex: 0 0 auto;
+  -webkit-app-region: drag; /* the top bar is the draggable title bar */
 }
+/* Interactive bits must not be draggable, or they can't be clicked. */
+.topbar-actions,
+.topbar .btn { -webkit-app-region: no-drag; }
 
 .brand { display: flex; align-items: center; gap: 10px; }
 

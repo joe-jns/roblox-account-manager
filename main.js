@@ -16,6 +16,12 @@ function createWindow() {
     backgroundColor: '#0f1115',
     title: 'Roblox Account Manager',
     autoHideMenuBar: true,
+    titleBarStyle: 'hidden',
+    titleBarOverlay: {
+      color: '#16191f',
+      symbolColor: '#c8ccd4',
+      height: 52,
+    },
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,

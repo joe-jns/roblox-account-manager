@@ -171,12 +171,14 @@ input, textarea, select, button { font-family: inherit; }
 .toolbar {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 16px;
+  height: 54px;
+  padding: 0 16px;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
   flex: 0 0 auto;
 }
+.toolbar-normal { display: flex; align-items: center; gap: 12px; width: 100%; }
+.toolbar-bulk { display: flex; align-items: center; gap: 8px; width: 100%; }
 
 #search {
   width: 340px;
@@ -590,21 +592,12 @@ input[type="checkbox"]:indeterminate::after {
 
 /* ---- Bulk action bar ----------------------------------------------------- */
 
-.bulkbar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  border-bottom: 1px solid var(--border);
-  background: var(--surface-2);
-  flex: 0 0 auto;
-}
-.bulkbar > * { flex: 0 0 auto; }
+.toolbar-bulk > * { flex: 0 0 auto; }
 .bulk-count { font-size: 13px; font-weight: 600; white-space: nowrap; }
 .bulk-sep { width: 1px; height: 20px; background: var(--border-strong); }
 .bulk-spacer { flex: 1 1 auto; }
-.bulkbar select, .bulkbar input {
-  height: 30px;
+.toolbar-bulk select, .toolbar-bulk input {
+  height: 32px;
   padding: 0 8px;
   background: var(--bg);
   border: 1px solid var(--border-strong);
@@ -613,10 +606,10 @@ input[type="checkbox"]:indeterminate::after {
   outline: none;
   font-size: 13px;
 }
-.bulkbar select:focus, .bulkbar input:focus { border-color: var(--focus); }
-.bulkbar select { width: 150px; }
-.bulkbar input { width: 150px; }
-.bulkbar .btn { height: 30px; white-space: nowrap; }
+.toolbar-bulk select:focus, .toolbar-bulk input:focus { border-color: var(--focus); }
+.toolbar-bulk select { width: 150px; }
+.toolbar-bulk input { width: 150px; }
+.toolbar-bulk .btn { white-space: nowrap; }
 
 /* ---- Modal (bulk add) ---------------------------------------------------- */
 

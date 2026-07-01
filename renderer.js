@@ -374,10 +374,10 @@ function updateCheckAll() {
 
 function renderBulkBar() {
   const n = selected.size;
-  const bar = $('#bulkbar');
-  if (n === 0) { bar.hidden = true; return; }
-  bar.hidden = false;
-  $('#bulk-count').textContent = `${n} selected`;
+  // The bulk actions REPLACE the search toolbar (same row) — no extra bar, no layout shift.
+  $('#toolbar-normal').hidden = n > 0;
+  $('#toolbar-bulk').hidden = n === 0;
+  if (n > 0) $('#bulk-count').textContent = `${n} selected`;
 }
 
 // ---- Drawer ----------------------------------------------------------------

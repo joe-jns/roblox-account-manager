@@ -39,24 +39,25 @@
 
     <main class="main">
       <div class="toolbar">
-        <input type="text" id="search" placeholder="Search a username or a tag…" autocomplete="off" />
-        <span class="active-filter" id="active-filter"></span>
-      </div>
-
-      <div class="bulkbar" id="bulkbar" hidden>
-        <span class="bulk-count" id="bulk-count">0 selected</span>
-        <div class="bulk-sep"></div>
-        <select id="bulk-status">
-          <option value="">Set status…</option>
-          <option value="Active">Active</option>
-          <option value="Warned">Warned</option>
-          <option value="Banned">Banned</option>
-        </select>
-        <input type="text" id="bulk-tag" placeholder="Add tag…" autocomplete="off" />
-        <button class="btn" id="bulk-tag-btn">Add tag</button>
-        <button class="btn btn-danger" id="bulk-delete">Delete</button>
-        <span class="bulk-spacer"></span>
-        <button class="btn btn-ghost" id="bulk-clear">Clear selection</button>
+        <div class="toolbar-normal" id="toolbar-normal">
+          <input type="text" id="search" placeholder="Search a username or a tag…" autocomplete="off" />
+          <span class="active-filter" id="active-filter"></span>
+        </div>
+        <div class="toolbar-bulk" id="toolbar-bulk" hidden>
+          <span class="bulk-count" id="bulk-count">0 selected</span>
+          <div class="bulk-sep"></div>
+          <select id="bulk-status">
+            <option value="">Set status…</option>
+            <option value="Active">Active</option>
+            <option value="Warned">Warned</option>
+            <option value="Banned">Banned</option>
+          </select>
+          <input type="text" id="bulk-tag" placeholder="Add tag…" autocomplete="off" />
+          <button class="btn" id="bulk-tag-btn">Add tag</button>
+          <button class="btn btn-danger" id="bulk-delete">Delete</button>
+          <span class="bulk-spacer"></span>
+          <button class="btn btn-ghost" id="bulk-clear">Clear selection</button>
+        </div>
       </div>
 
       <div class="table-wrap">

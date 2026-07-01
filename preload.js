@@ -13,5 +13,12 @@ contextBridge.exposeInMainWorld('api', {
   robloxLogin: (payload) => ipcRenderer.invoke('roblox:login', payload),
   setTheme: (theme) => ipcRenderer.invoke('theme:set', theme),
   version: () => ipcRenderer.invoke('app:version'),
+  secureStatus: () => ipcRenderer.invoke('secure:status'),
+  unlock: (password) => ipcRenderer.invoke('secure:unlock', password),
+  setMasterPassword: (password, accounts) => ipcRenderer.invoke('secure:set', { password, accounts }),
+  removeMasterPassword: (accounts) => ipcRenderer.invoke('secure:remove', { accounts }),
+  openDataFolder: () => ipcRenderer.invoke('data:openFolder'),
+  logoutAll: (ids) => ipcRenderer.invoke('roblox:logoutAll', ids),
+  setConfig: (cfg) => ipcRenderer.invoke('config:set', cfg),
   confirm: (message, buttons) => ipcRenderer.invoke('ui:confirm', { message, buttons }),
 });

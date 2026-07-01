@@ -1,11 +1,52 @@
-const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, session } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const path = require('node:path');
 const fs = require('node:fs/promises');
+const fsSync = require('node:fs');
+const crypto = require('node:crypto');
 
 const DATA_FILE = () => path.join(app.getPath('userData'), 'accounts.json');
+const CFG_FILE = () => path.join(app.getPath('userData'), 'appconfig.json');
 
 let win;
+
+// ---- Optional at-rest encryption (master password) -------------------------
+// When a master password is set, accounts.json holds an AES-256-GCM envelope.
+let sessionKey = null;     // Buffer, present once unlocked
+let encEnabled = false;    // whether the on-disk data is encrypted
+let currentSalt = null;    // Buffer salt used for the session key
+let pendingEnvelope = null; // envelope read from disk while still locked
+let autoBackup = false;
+
+function deriveKey(password, salt) {
+  return crypto.scryptSync(String(password), salt, 32);
+}
+
+function encryptAccounts(accounts, key, salt) {
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+  const json = Buffer.from(JSON.stringify(accounts), 'utf8');
+  const data = Buffer.concat([cipher.update(json), cipher.final()]);
+  return {
+    enc: true,
+    v: 1,
+    salt: salt.toString('base64'),
+    iv: iv.toString('base64'),
+    tag: cipher.getAuthTag().toString('base64'),
+    data: data.toString('base64'),
+  };
+}
+
+function decryptAccounts(env, key) {
+  const iv = Buffer.from(env.iv, 'base64');
+  const tag = Buffer.from(env.tag, 'base64');
+  const data = Buffer.from(env.data, 'base64');
+  const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
+  decipher.setAuthTag(tag);
+  const out = Buffer.concat([decipher.update(data), decipher.final()]);
+  const parsed = JSON.parse(out.toString('utf8'));
+  return Array.isArray(parsed) ? parsed : [];
+}
 
 function createWindow() {
   win = new BrowserWindow({
@@ -33,6 +74,13 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  try {
+    const c = JSON.parse(fsSync.readFileSync(CFG_FILE(), 'utf8'));
+    autoBackup = !!c.autoBackup;
+  } catch {
+    autoBackup = false;
+  }
+
   createWindow();
 
   // Auto-update from GitHub Releases (only in the installed/packaged build).
@@ -46,6 +94,21 @@ app.whenReady().then(() => {
   });
 });
 
+// Dated backup of the data file on quit, if enabled.
+app.on('before-quit', () => {
+  if (!autoBackup) return;
+  try {
+    const src = DATA_FILE();
+    if (!fsSync.existsSync(src)) return;
+    const dir = path.join(app.getPath('userData'), 'backups');
+    fsSync.mkdirSync(dir, { recursive: true });
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+    fsSync.copyFileSync(src, path.join(dir, `accounts-${stamp}.json`));
+  } catch {
+    // best-effort
+  }
+});
+
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
@@ -53,20 +116,78 @@ app.on('window-all-closed', () => {
 // ---- Persistence -----------------------------------------------------------
 
 ipcMain.handle('accounts:load', async () => {
+  let raw;
   try {
-    const raw = await fs.readFile(DATA_FILE(), 'utf8');
-    const data = JSON.parse(raw);
-    return Array.isArray(data) ? data : [];
+    raw = await fs.readFile(DATA_FILE(), 'utf8');
   } catch (err) {
-    if (err.code === 'ENOENT') return []; // first launch, no data file yet
+    if (err.code === 'ENOENT') { encEnabled = false; return { locked: false, accounts: [] }; }
     throw err;
   }
+  const data = JSON.parse(raw);
+  if (data && data.enc) {
+    encEnabled = true;
+    pendingEnvelope = data;
+    if (sessionKey) {
+      return { locked: false, accounts: decryptAccounts(data, sessionKey) };
+    }
+    return { locked: true };
+  }
+  encEnabled = false;
+  return { locked: false, accounts: Array.isArray(data) ? data : [] };
 });
 
 ipcMain.handle('accounts:save', async (_evt, accounts) => {
-  const json = JSON.stringify(accounts, null, 2);
-  await fs.writeFile(DATA_FILE(), json, 'utf8');
+  if (encEnabled && sessionKey && currentSalt) {
+    const env = encryptAccounts(accounts, sessionKey, currentSalt);
+    await fs.writeFile(DATA_FILE(), JSON.stringify(env), 'utf8');
+  } else {
+    await fs.writeFile(DATA_FILE(), JSON.stringify(accounts, null, 2), 'utf8');
+  }
   return true;
+});
+
+// ---- Master password -------------------------------------------------------
+
+ipcMain.handle('secure:status', () => ({ encEnabled, unlocked: !!sessionKey }));
+
+ipcMain.handle('secure:unlock', async (_evt, password) => {
+  if (!pendingEnvelope) return { ok: false, error: 'Not encrypted' };
+  try {
+    const salt = Buffer.from(pendingEnvelope.salt, 'base64');
+    const key = deriveKey(password, salt);
+    const accounts = decryptAccounts(pendingEnvelope, key);
+    sessionKey = key;
+    currentSalt = salt;
+    encEnabled = true;
+    return { ok: true, accounts };
+  } catch {
+    return { ok: false, error: 'Wrong password' };
+  }
+});
+
+// Enable/replace the master password and re-encrypt the current data.
+ipcMain.handle('secure:set', async (_evt, { password, accounts }) => {
+  if (!password || String(password).length < 4) return { ok: false, error: 'Password too short (min 4)' };
+  const salt = crypto.randomBytes(16);
+  const key = deriveKey(password, salt);
+  const env = encryptAccounts(accounts || [], key, salt);
+  await fs.writeFile(DATA_FILE(), JSON.stringify(env), 'utf8');
+  sessionKey = key;
+  currentSalt = salt;
+  encEnabled = true;
+  return { ok: true };
+});
+
+// Remove the master password (must be unlocked) and write plaintext.
+ipcMain.handle('secure:remove', async (_evt, { accounts }) => {
+  if (!encEnabled) return { ok: true };
+  if (!sessionKey) return { ok: false, error: 'Locked' };
+  await fs.writeFile(DATA_FILE(), JSON.stringify(accounts || [], null, 2), 'utf8');
+  sessionKey = null;
+  currentSalt = null;
+  encEnabled = false;
+  pendingEnvelope = null;
+  return { ok: true };
 });
 
 // ---- Export / Import -------------------------------------------------------
@@ -294,6 +415,41 @@ ipcMain.handle('theme:set', (_evt, theme) => {
 });
 
 ipcMain.handle('app:version', () => app.getVersion());
+
+// Open the folder that holds accounts.json.
+ipcMain.handle('data:openFolder', () => {
+  const file = DATA_FILE();
+  if (fsSync.existsSync(file)) shell.showItemInFolder(file);
+  else shell.openPath(app.getPath('userData'));
+  return true;
+});
+
+// Clear the persisted Roblox login sessions and close their windows.
+ipcMain.handle('roblox:logoutAll', async (_evt, ids) => {
+  const list = Array.isArray(ids) ? ids : [];
+  let n = 0;
+  for (const id of list) {
+    try {
+      await session.fromPartition('persist:roblox-' + String(id)).clearStorageData();
+      n++;
+    } catch {
+      // partition may not exist
+    }
+  }
+  for (const w of loginWindows.values()) {
+    try { if (w && !w.isDestroyed()) w.close(); } catch {}
+  }
+  return n;
+});
+
+// Persist the few settings the main process needs (auto-backup on quit).
+ipcMain.handle('config:set', async (_evt, cfg) => {
+  if (cfg && typeof cfg.autoBackup === 'boolean') {
+    autoBackup = cfg.autoBackup;
+    try { await fs.writeFile(CFG_FILE(), JSON.stringify({ autoBackup }), 'utf8'); } catch {}
+  }
+  return true;
+});
 
 // ---- Open a Roblox window logged in as an account --------------------------
 // Each account gets an isolated, persistent session partition, so once it is

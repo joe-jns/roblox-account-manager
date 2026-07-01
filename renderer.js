@@ -740,8 +740,10 @@ function newAccount() {
 async function deleteAccount(id) {
   const a = accounts.find((x) => x.id === id);
   const name = a && a.pseudo ? `"${a.pseudo}"` : 'this account';
-  const res = await window.api.confirm(`Delete ${name}? This cannot be undone.`, ['Delete', 'Cancel']);
-  if (res !== 0) return;
+  if (settings.confirmDelete) {
+    const res = await window.api.confirm(`Delete ${name}? This cannot be undone.`, ['Delete', 'Cancel']);
+    if (res !== 0) return;
+  }
   accounts = accounts.filter((x) => x.id !== id);
   save();
   closeDrawer();
@@ -800,6 +802,7 @@ const enrichAttempted = new Set(); // lowercased usernames tried this session
 
 async function autoEnrich() {
   if (enriching) return;
+  if (settings.autoFetch === false) return;
   const pending = accounts.filter(
     (a) => a.pseudo.trim() && !a.userId && !enrichAttempted.has(a.pseudo.trim().toLowerCase())
   );
@@ -909,16 +912,54 @@ function saveSettings() {
 }
 const settings = loadSettings();
 if (!settings.theme) settings.theme = 'dark';
+if (settings.accent === undefined) settings.accent = null;
+if (settings.autoFetch === undefined) settings.autoFetch = true;
+if (settings.confirmDelete === undefined) settings.confirmDelete = true;
+if (settings.autoBackup === undefined) settings.autoBackup = false;
 
-function applyTheme(theme) {
-  document.documentElement.classList.toggle('theme-light', theme === 'light');
-  window.api.setTheme(theme);
-  document.querySelectorAll('#set-theme button').forEach((b) => b.classList.toggle('active', b.dataset.value === theme));
+function defaultAccent() { return settings.theme === 'light' ? '#E12028' : '#4d7cfe'; }
+
+function hexToRgba(hex, a) {
+  const h = hex.replace('#', '');
+  const full = h.length === 3 ? h.split('').map((c) => c + c).join('') : h;
+  const n = parseInt(full, 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
+}
+
+function applyAccent(hex) {
+  const root = document.documentElement.style;
+  if (hex) {
+    root.setProperty('--focus', hex);
+    root.setProperty('--sel', hexToRgba(hex, 0.1));
+    root.setProperty('--sel-strong', hexToRgba(hex, 0.3));
+  } else {
+    root.removeProperty('--focus');
+    root.removeProperty('--sel');
+    root.removeProperty('--sel-strong');
+  }
+}
+
+function applyAppearance() {
+  document.documentElement.classList.toggle('theme-light', settings.theme === 'light');
+  window.api.setTheme(settings.theme);
+  applyAccent(settings.accent);
+  document.querySelectorAll('#set-theme button').forEach((b) => b.classList.toggle('active', b.dataset.value === settings.theme));
+}
+
+function updateMpStatus(on) {
+  $('#mp-status').textContent = on ? 'On — your data is encrypted.' : 'Off — data stored in plain text.';
+  $('#mp-set').textContent = on ? 'Change' : 'Set';
+  $('#mp-remove').hidden = !on;
 }
 
 function openSettings() {
   document.querySelectorAll('#set-theme button').forEach((b) => b.classList.toggle('active', b.dataset.value === settings.theme));
+  $('#set-accent').value = settings.accent || defaultAccent();
+  $('#set-autofetch').checked = settings.autoFetch;
+  $('#set-confirm-delete').checked = settings.confirmDelete;
+  $('#set-autobackup').checked = settings.autoBackup;
   window.api.version().then((v) => { $('#set-version').textContent = 'v' + v; }).catch(() => {});
+  window.api.secureStatus().then((s) => updateMpStatus(s.encEnabled)).catch(() => {});
   $('#settings-backdrop').hidden = false;
   $('#settings-modal').hidden = false;
 }
@@ -928,7 +969,73 @@ function closeSettings() {
   $('#settings-modal').hidden = true;
 }
 
-applyTheme(settings.theme);
+// Generic password prompt -> Promise<string|null>
+let pwResolve = null;
+function askPassword(title) {
+  return new Promise((resolve) => {
+    pwResolve = resolve;
+    $('#pw-title').textContent = title;
+    $('#pw-input').value = '';
+    $('#pw-error').hidden = true;
+    $('#pw-backdrop').hidden = false;
+    $('#pw-modal').hidden = false;
+    $('#pw-input').focus();
+  });
+}
+function closePw(val) {
+  $('#pw-backdrop').hidden = true;
+  $('#pw-modal').hidden = true;
+  const r = pwResolve;
+  pwResolve = null;
+  if (r) r(val);
+}
+
+async function refreshAllRoblox() {
+  const named = accounts.filter((a) => a.pseudo.trim());
+  if (!named.length) { toast('No accounts to refresh'); return; }
+  toast('Refreshing Roblox info…');
+  const names = [...new Set(named.map((a) => a.pseudo.trim()))];
+  let map = null;
+  try { map = await window.api.enrichBatch(names); } catch { map = null; }
+  if (!map) { toast('Refresh failed'); return; }
+  let n = 0;
+  for (const a of accounts) {
+    const r = map[a.pseudo.trim().toLowerCase()];
+    if (r && r.ok) {
+      a.userId = r.userId; a.displayName = r.displayName; a.created = r.created;
+      a.avatarUrl = r.avatarUrl; a.robloxBanned = r.robloxBanned;
+      n++;
+    }
+  }
+  if (n) { save(); render(); if (selectedId) renderDetail(); }
+  toast(`Refreshed ${n} account(s)`);
+}
+
+// Lock screen
+function showLock() {
+  $('#lock').hidden = false;
+  $('#lock-error').hidden = true;
+  $('#lock-input').value = '';
+  $('#lock-input').focus();
+}
+async function tryUnlock() {
+  const pw = $('#lock-input').value;
+  if (!pw) return;
+  const r = await window.api.unlock(pw);
+  if (r.ok) {
+    $('#lock').hidden = true;
+    accounts = (r.accounts || []).map(normalize);
+    render();
+    if (settings.autoFetch !== false) autoEnrich();
+  } else {
+    $('#lock-error').hidden = false;
+    $('#lock-error').textContent = r.error || 'Wrong password';
+    $('#lock-input').select();
+  }
+}
+
+applyAppearance();
+window.api.setConfig({ autoBackup: settings.autoBackup });
 
 // ---- Wiring ----------------------------------------------------------------
 
@@ -942,8 +1049,57 @@ $('#set-theme').addEventListener('click', (e) => {
   if (!btn) return;
   settings.theme = btn.dataset.value;
   saveSettings();
-  applyTheme(settings.theme);
+  applyAppearance();
+  if (!settings.accent) $('#set-accent').value = defaultAccent();
 });
+$('#set-accent').addEventListener('input', (e) => {
+  settings.accent = e.target.value;
+  saveSettings();
+  applyAccent(settings.accent);
+});
+$('#set-accent-reset').addEventListener('click', () => {
+  settings.accent = null;
+  saveSettings();
+  applyAccent(null);
+  $('#set-accent').value = defaultAccent();
+});
+$('#set-autofetch').addEventListener('change', (e) => { settings.autoFetch = e.target.checked; saveSettings(); });
+$('#set-confirm-delete').addEventListener('change', (e) => { settings.confirmDelete = e.target.checked; saveSettings(); });
+$('#set-autobackup').addEventListener('change', (e) => {
+  settings.autoBackup = e.target.checked;
+  saveSettings();
+  window.api.setConfig({ autoBackup: settings.autoBackup });
+});
+$('#set-open-folder').addEventListener('click', () => window.api.openDataFolder());
+$('#set-refresh-all').addEventListener('click', () => refreshAllRoblox());
+$('#set-logout-all').addEventListener('click', async () => {
+  const ok = await window.api.confirm('Log out all accounts? Their saved Roblox sessions will be cleared.', ['Log out', 'Cancel']);
+  if (ok !== 0) return;
+  const n = await window.api.logoutAll(accounts.map((a) => a.id));
+  toast(`Cleared ${n} session(s)`);
+});
+$('#mp-set').addEventListener('click', async () => {
+  const pw = await askPassword('Set master password');
+  if (!pw) return;
+  const r = await window.api.setMasterPassword(pw, accounts);
+  if (r.ok) { updateMpStatus(true); toast('Master password set'); }
+  else toast(r.error || 'Failed to set password');
+});
+$('#mp-remove').addEventListener('click', async () => {
+  const ok = await window.api.confirm('Remove master password? Your data will be stored in plain text again.', ['Remove', 'Cancel']);
+  if (ok !== 0) return;
+  const r = await window.api.removeMasterPassword(accounts);
+  if (r.ok) { updateMpStatus(false); toast('Master password removed'); }
+  else toast(r.error || 'Failed to remove');
+});
+$('#pw-ok').addEventListener('click', () => closePw($('#pw-input').value));
+$('#pw-cancel').addEventListener('click', () => closePw(null));
+$('#pw-input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); closePw($('#pw-input').value); }
+  else if (e.key === 'Escape') { e.preventDefault(); closePw(null); }
+});
+$('#lock-unlock').addEventListener('click', tryUnlock);
+$('#lock-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') tryUnlock(); });
 
 $('#btn-new').addEventListener('click', newAccount);
 $('#btn-export').addEventListener('click', doExport);
@@ -1002,8 +1158,10 @@ $('#bulk-tag').addEventListener('keydown', (e) => { if (e.key === 'Enter') bulkA
 $('#bulk-delete').addEventListener('click', async () => {
   const n = selected.size;
   if (!n) return;
-  const res = await window.api.confirm(`Delete ${n} selected account(s)? This cannot be undone.`, ['Delete', 'Cancel']);
-  if (res !== 0) return;
+  if (settings.confirmDelete) {
+    const res = await window.api.confirm(`Delete ${n} selected account(s)? This cannot be undone.`, ['Delete', 'Cancel']);
+    if (res !== 0) return;
+  }
   accounts = accounts.filter((a) => !selected.has(a.id));
   selected.clear();
   if (selectedId && !accounts.some((a) => a.id === selectedId)) closeDrawer();
@@ -1025,6 +1183,8 @@ $('#modal-backdrop').addEventListener('click', closeBulk);
 // Keyboard
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
+  if (!$('#lock').hidden) return; // can't escape the lock screen
+  if (!$('#pw-modal').hidden) { closePw(null); return; }
   if (!$('#settings-modal').hidden) closeSettings();
   else if (!$('#bulk-modal').hidden) closeBulk();
   else if (drawerEl.classList.contains('open')) closeDrawer();
@@ -1033,13 +1193,15 @@ document.addEventListener('keydown', (e) => {
 // ---- Boot ------------------------------------------------------------------
 
 (async function init() {
+  let res;
   try {
-    const raw = await window.api.load();
-    accounts = raw.map(normalize);
+    res = await window.api.load();
   } catch (err) {
     toast('Load error: ' + err.message);
-    accounts = [];
+    res = { locked: false, accounts: [] };
   }
+  if (res.locked) { showLock(); return; }
+  accounts = (res.accounts || []).map(normalize);
   render();
   autoEnrich();
 })();

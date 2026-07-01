@@ -209,6 +209,7 @@
   <div class="modal" id="settings-modal" hidden>
     <div class="modal-head">Settings</div>
     <div class="modal-body">
+      <div class="set-section">Appearance</div>
       <div class="set-row">
         <div>
           <div class="set-label">Theme</div>
@@ -221,6 +222,74 @@
       </div>
       <div class="set-row">
         <div>
+          <div class="set-label">Accent color</div>
+          <div class="set-desc">Custom highlight color.</div>
+        </div>
+        <div class="set-inline">
+          <input type="color" id="set-accent" value="#E12028" />
+          <button class="btn" id="set-accent-reset">Reset</button>
+        </div>
+      </div>
+
+      <div class="set-section">Roblox</div>
+      <div class="set-row">
+        <div>
+          <div class="set-label">Auto-fetch on launch</div>
+          <div class="set-desc">Fetch missing Roblox info when the app opens.</div>
+        </div>
+        <label class="switch"><input type="checkbox" id="set-autofetch" /><span class="track"></span></label>
+      </div>
+      <div class="set-row">
+        <div>
+          <div class="set-label">Refresh all Roblox info</div>
+          <div class="set-desc">Re-fetch avatars and info for every account now.</div>
+        </div>
+        <button class="btn" id="set-refresh-all">Refresh</button>
+      </div>
+      <div class="set-row">
+        <div>
+          <div class="set-label">Log out all accounts</div>
+          <div class="set-desc">Clear every saved Roblox login session.</div>
+        </div>
+        <button class="btn btn-danger" id="set-logout-all">Log out</button>
+      </div>
+
+      <div class="set-section">Data &amp; safety</div>
+      <div class="set-row">
+        <div>
+          <div class="set-label">Confirm before delete</div>
+          <div class="set-desc">Ask before deleting an account.</div>
+        </div>
+        <label class="switch"><input type="checkbox" id="set-confirm-delete" /><span class="track"></span></label>
+      </div>
+      <div class="set-row">
+        <div>
+          <div class="set-label">Auto-backup on close</div>
+          <div class="set-desc">Save a dated copy when you quit.</div>
+        </div>
+        <label class="switch"><input type="checkbox" id="set-autobackup" /><span class="track"></span></label>
+      </div>
+      <div class="set-row">
+        <div>
+          <div class="set-label">Data folder</div>
+          <div class="set-desc">Where accounts.json lives.</div>
+        </div>
+        <button class="btn" id="set-open-folder">Open</button>
+      </div>
+      <div class="set-row">
+        <div>
+          <div class="set-label">Master password</div>
+          <div class="set-desc" id="mp-status">Off — data stored in plain text.</div>
+        </div>
+        <div class="set-inline">
+          <button class="btn" id="mp-set">Set</button>
+          <button class="btn btn-danger" id="mp-remove" hidden>Remove</button>
+        </div>
+      </div>
+
+      <div class="set-section">About</div>
+      <div class="set-row">
+        <div>
           <div class="set-label">Version</div>
           <div class="set-desc">Roblox Account Manager</div>
         </div>
@@ -230,6 +299,33 @@
     <div class="modal-foot">
       <span class="bulk-spacer"></span>
       <button class="btn btn-primary" id="settings-close">Done</button>
+    </div>
+  </div>
+
+  <!-- Generic password prompt -->
+  <div class="modal-backdrop" id="pw-backdrop" hidden></div>
+  <div class="modal modal-sm" id="pw-modal" hidden>
+    <div class="modal-head" id="pw-title">Password</div>
+    <div class="modal-body">
+      <input type="password" id="pw-input" class="mono" placeholder="Password" autocomplete="off" />
+      <div class="pw-error" id="pw-error" hidden></div>
+    </div>
+    <div class="modal-foot">
+      <span class="bulk-spacer"></span>
+      <button class="btn btn-ghost" id="pw-cancel">Cancel</button>
+      <button class="btn btn-primary" id="pw-ok">OK</button>
+    </div>
+  </div>
+
+  <!-- Lock screen (shown when data is encrypted and not yet unlocked) -->
+  <div class="lock" id="lock" hidden>
+    <div class="lock-box">
+      <div class="brand-mark lock-mark"></div>
+      <div class="lock-title">Locked</div>
+      <div class="lock-desc">Enter your master password to unlock.</div>
+      <input type="password" id="lock-input" class="mono" placeholder="Master password" autocomplete="off" />
+      <div class="pw-error" id="lock-error" hidden></div>
+      <button class="btn btn-primary" id="lock-unlock">Unlock</button>
     </div>
   </div>
 

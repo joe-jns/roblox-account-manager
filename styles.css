@@ -496,6 +496,143 @@ select { cursor: pointer; }
 }
 @keyframes toast-in { from { opacity: 0; transform: translate(-50%, 6px); } }
 
+/* ---- Sortable headers ---------------------------------------------------- */
+
+.accounts-table th.sortable { cursor: pointer; user-select: none; }
+.accounts-table th.sortable:hover { color: var(--text); }
+.sort-ind { display: inline-block; width: 12px; margin-left: 2px; color: var(--muted-2); }
+.accounts-table th.sorted { color: var(--text); }
+.accounts-table th.sorted .sort-ind { color: var(--focus); }
+
+/* ---- Checkbox column ----------------------------------------------------- */
+
+.col-check { width: 34px; text-align: center; }
+.accounts-table td.col-check { text-align: center; }
+input[type="checkbox"] {
+  width: 15px; height: 15px;
+  accent-color: var(--focus);
+  cursor: pointer;
+  vertical-align: middle;
+}
+.accounts-table tbody tr.selected td { background: rgba(77, 124, 254, 0.09); }
+
+/* ---- Avatar in table ----------------------------------------------------- */
+
+.cell-user { display: inline-flex; align-items: center; gap: 8px; }
+.avatar {
+  border-radius: 50%;
+  background: var(--surface-3);
+  border: 1px solid var(--border-strong);
+  object-fit: cover;
+  flex: 0 0 auto;
+}
+.avatar-sm { width: 22px; height: 22px; }
+.avatar-lg { width: 40px; height: 40px; border-radius: 8px; }
+
+/* ---- Roblox info row (drawer) ------------------------------------------- */
+
+.roblox-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: -6px 0 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+.roblox-meta { font-size: 12.5px; color: var(--muted); flex: 1 1 auto; min-width: 160px; }
+.roblox-meta .rb-id { font-family: var(--mono); }
+.roblox-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.rb-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 7px;
+  font-size: 11px;
+  border-radius: 4px;
+  color: #ffb3a8;
+  background: rgba(240, 85, 63, 0.14);
+  border: 1px solid #4a2b2b;
+}
+
+/* ---- Bulk action bar ----------------------------------------------------- */
+
+.bulkbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+  flex: 0 0 auto;
+}
+.bulk-count { font-size: 13px; font-weight: 600; }
+.bulk-sep { width: 1px; height: 20px; background: var(--border-strong); }
+.bulk-spacer { flex: 1 1 auto; }
+.bulkbar select, .bulkbar input {
+  height: 30px;
+  padding: 0 8px;
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  color: var(--text);
+  outline: none;
+  font-size: 13px;
+}
+.bulkbar select:focus, .bulkbar input:focus { border-color: var(--focus); }
+.bulkbar input { width: 140px; }
+.bulkbar .btn { height: 30px; }
+
+/* ---- Modal (bulk add) ---------------------------------------------------- */
+
+.modal-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(6, 8, 11, 0.55);
+  z-index: 50;
+  animation: fade-in 0.15s ease;
+}
+.modal {
+  position: fixed;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 560px; max-width: 92vw;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  z-index: 51;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.modal-head {
+  padding: 16px 18px;
+  font-weight: 600;
+  font-size: 15px;
+  border-bottom: 1px solid var(--border);
+}
+.modal-body { padding: 16px 18px; }
+.modal-hint { font-size: 12.5px; color: var(--muted); }
+.modal-hint code {
+  font-family: var(--mono);
+  background: var(--surface-3);
+  padding: 1px 5px;
+  border-radius: 4px;
+  color: var(--text);
+}
+.modal-body textarea {
+  margin-top: 12px;
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.55;
+}
+.modal-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 18px;
+  border-top: 1px solid var(--border);
+}
+
 /* Scrollbars */
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 6px; border: 2px solid var(--surface); }

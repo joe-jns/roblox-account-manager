@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const path = require('node:path');
 const fs = require('node:fs/promises');
@@ -96,11 +96,13 @@ ipcMain.handle('accounts:import', async () => {
 
 // ---- Roblox game name resolution ------------------------------------------
 
-async function fetchJSON(url) {
+async function fetchJSON(url, options) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 8000);
   try {
-    const res = await fetch(url, { signal: ctrl.signal, headers: { Accept: 'application/json' } });
+    const opts = Object.assign({ signal: ctrl.signal }, options);
+    opts.headers = Object.assign({ Accept: 'application/json' }, options && options.headers);
+    const res = await fetch(url, opts);
     if (!res.ok) return null;
     return await res.json();
   } catch {
@@ -126,6 +128,49 @@ ipcMain.handle('game:resolve', async (_evt, rawId) => {
   const name = games && Array.isArray(games.data) && games.data[0] && games.data[0].name;
   if (name) return { ok: true, id, name };
   return { ok: false, error: 'Game not found' };
+});
+
+// ---- Roblox account enrichment (username -> profile info + avatar) ---------
+
+ipcMain.handle('roblox:enrich', async (_evt, username) => {
+  const name = String(username || '').trim();
+  if (!name) return { ok: false, error: 'Empty username' };
+
+  // 1) username -> userId
+  const lookup = await fetchJSON('https://users.roblox.com/v1/usernames/users', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ usernames: [name], excludeBannedUsers: false }),
+  });
+  const user = lookup && Array.isArray(lookup.data) && lookup.data[0];
+  if (!user) return { ok: false, error: 'User not found' };
+  const userId = user.id;
+
+  // 2) profile details (creation date, terminated flag, display name)
+  const details = await fetchJSON(`https://users.roblox.com/v1/users/${userId}`);
+
+  // 3) avatar headshot
+  const thumb = await fetchJSON(
+    `https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${userId}&size=48x48&format=Png&isCircular=false`
+  );
+  const avatarUrl = thumb && Array.isArray(thumb.data) && thumb.data[0] && thumb.data[0].imageUrl;
+
+  return {
+    ok: true,
+    userId: String(userId),
+    displayName: (details && details.displayName) || user.displayName || '',
+    created: details && details.created ? String(details.created).slice(0, 10) : null,
+    robloxBanned: !!(details && details.isBanned),
+    avatarUrl: avatarUrl || null,
+  };
+});
+
+ipcMain.handle('open:url', async (_evt, url) => {
+  if (typeof url === 'string' && /^https:\/\//.test(url)) {
+    await shell.openExternal(url);
+    return true;
+  }
+  return false;
 });
 
 ipcMain.handle('ui:confirm', async (_evt, { message, buttons }) => {

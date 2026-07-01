@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline';" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.rbxcdn.com;" />
   <title>Roblox Account Manager</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
@@ -14,6 +14,7 @@
       <span class="count" id="count">0 accounts</span>
     </div>
     <div class="topbar-actions">
+      <button class="btn" id="btn-bulk">Bulk add</button>
       <button class="btn" id="btn-import">Import</button>
       <button class="btn" id="btn-export">Export</button>
       <button class="btn btn-primary" id="btn-new">+ New</button>
@@ -41,18 +42,36 @@
         <input type="text" id="search" placeholder="Search a username or a tag…" autocomplete="off" />
         <span class="active-filter" id="active-filter"></span>
       </div>
+
+      <div class="bulkbar" id="bulkbar" hidden>
+        <span class="bulk-count" id="bulk-count">0 selected</span>
+        <div class="bulk-sep"></div>
+        <select id="bulk-status">
+          <option value="">Set status…</option>
+          <option value="Active">Active</option>
+          <option value="Warned">Warned</option>
+          <option value="Banned">Banned</option>
+        </select>
+        <input type="text" id="bulk-tag" placeholder="Add tag…" autocomplete="off" />
+        <button class="btn" id="bulk-tag-btn">Add tag</button>
+        <button class="btn btn-danger" id="bulk-delete">Delete</button>
+        <span class="bulk-spacer"></span>
+        <button class="btn btn-ghost" id="bulk-clear">Clear selection</button>
+      </div>
+
       <div class="table-wrap">
         <table class="accounts-table">
           <thead>
             <tr>
-              <th class="col-status">Status</th>
-              <th>Username</th>
-              <th>Age</th>
-              <th class="center">Voice</th>
-              <th class="center">Verified</th>
-              <th>Banned games</th>
+              <th class="col-check"><input type="checkbox" id="check-all" title="Select all" /></th>
+              <th class="col-status sortable" data-sort="status">Status<span class="sort-ind"></span></th>
+              <th class="sortable" data-sort="pseudo">Username<span class="sort-ind"></span></th>
+              <th class="sortable" data-sort="ageRange">Age<span class="sort-ind"></span></th>
+              <th class="center sortable" data-sort="voiceChat">Voice<span class="sort-ind"></span></th>
+              <th class="center sortable" data-sort="ageVerified">Verified<span class="sort-ind"></span></th>
+              <th class="sortable" data-sort="bannedGames">Banned games<span class="sort-ind"></span></th>
               <th>Tags</th>
-              <th>Added</th>
+              <th class="sortable" data-sort="dateAdded">Added<span class="sort-ind"></span></th>
             </tr>
           </thead>
           <tbody id="table-body"></tbody>
@@ -74,11 +93,21 @@
   <template id="tpl-detail">
     <div class="detail-inner">
       <div class="detail-head">
+        <img class="avatar avatar-lg" data-el="avatar" alt="" hidden />
         <input class="pseudo-field" type="text" data-field="pseudo" placeholder="Roblox username" spellcheck="false" autocomplete="off" />
         <div class="detail-head-actions">
           <button class="btn btn-ghost" data-act="copy-pseudo">Copy username</button>
           <button class="btn btn-danger" data-act="delete">Delete</button>
         </div>
+      </div>
+
+      <div class="roblox-row">
+        <span class="roblox-meta" data-el="roblox-meta">No Roblox info yet.</span>
+        <span class="roblox-actions">
+          <button class="icon-btn" data-act="enrich">Fetch Roblox info</button>
+          <button class="icon-btn" data-act="open-profile">Open profile</button>
+          <button class="icon-btn" data-act="copy-combo">Copy user:pass</button>
+        </span>
       </div>
 
       <div class="grid">
@@ -153,6 +182,21 @@
       </div>
     </div>
   </template>
+
+  <div class="modal-backdrop" id="modal-backdrop" hidden></div>
+  <div class="modal" id="bulk-modal" hidden>
+    <div class="modal-head">Bulk add accounts</div>
+    <div class="modal-body">
+      <p class="modal-hint">One account per line as <code>username:password</code>. Space, tab or comma separators also work. A line with no separator is treated as a username only.</p>
+      <textarea id="bulk-text" rows="12" spellcheck="false" placeholder="user1:password1&#10;user2:password2&#10;user3, password3"></textarea>
+    </div>
+    <div class="modal-foot">
+      <span class="modal-hint" id="bulk-preview"></span>
+      <span class="bulk-spacer"></span>
+      <button class="btn btn-ghost" id="bulk-cancel">Cancel</button>
+      <button class="btn btn-primary" id="bulk-add">Add accounts</button>
+    </div>
+  </div>
 
   <div class="toast" id="toast" hidden></div>
 

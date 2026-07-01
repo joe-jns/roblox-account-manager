@@ -6,6 +6,8 @@ let accounts = [];
 let selectedId = null;
 let search = '';
 const filters = { view: 'all', voice: false, verified: false, tag: null };
+const sort = { key: null, dir: 'asc' };
+const selected = new Set();
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const bodyEl = $('#table-body');
@@ -25,6 +27,8 @@ const STATUSES = ['Active', 'Warned', 'Banned'];
 const AGES = ['Unknown', '18-20', '21+'];
 const STATUS_MIGRATE = { Actif: 'Active', Averti: 'Warned', Banni: 'Banned' };
 const AGE_MIGRATE = { Inconnu: 'Unknown' };
+const STATUS_RANK = { Active: 0, Warned: 1, Banned: 2 };
+const AGE_RANK = { Unknown: 0, '18-20': 1, '21+': 2 };
 
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
@@ -52,6 +56,11 @@ function normalize(a) {
     tags: Array.isArray(a.tags) ? a.tags : [],
     dateAdded: a.dateAdded || todayISO(),
     notes: a.notes || '',
+    userId: a.userId ? String(a.userId) : null,
+    displayName: a.displayName || '',
+    created: a.created || null,
+    avatarUrl: a.avatarUrl || null,
+    robloxBanned: !!a.robloxBanned,
   };
 }
 
@@ -69,11 +78,24 @@ function save() {
   }, 250);
 }
 
-// ---- Filtering -------------------------------------------------------------
+// ---- Filtering + sorting ---------------------------------------------------
+
+function sortValue(a, key) {
+  switch (key) {
+    case 'pseudo': return (a.pseudo || '').toLowerCase();
+    case 'status': return STATUS_RANK[a.status] ?? 0;
+    case 'ageRange': return AGE_RANK[a.ageRange] ?? 0;
+    case 'voiceChat': return a.voiceChat ? 1 : 0;
+    case 'ageVerified': return a.ageVerified ? 1 : 0;
+    case 'bannedGames': return a.bannedGames.length;
+    case 'dateAdded': return a.dateAdded || '';
+    default: return '';
+  }
+}
 
 function visibleAccounts() {
   const q = search.trim().toLowerCase();
-  return accounts.filter((a) => {
+  let list = accounts.filter((a) => {
     if (filters.view !== 'all' && a.status !== filters.view) return false;
     if (filters.voice && !a.voiceChat) return false;
     if (filters.verified && !a.ageVerified) return false;
@@ -84,12 +106,25 @@ function visibleAccounts() {
     }
     return true;
   });
+  if (sort.key) {
+    const dir = sort.dir === 'desc' ? -1 : 1;
+    list = list.slice().sort((a, b) => {
+      const va = sortValue(a, sort.key);
+      const vb = sortValue(b, sort.key);
+      if (va < vb) return -1 * dir;
+      if (va > vb) return 1 * dir;
+      return 0;
+    });
+  }
+  return list;
 }
 
 function render() {
+  for (const id of [...selected]) if (!accounts.some((a) => a.id === id)) selected.delete(id);
   renderSidebar();
   renderTable();
   renderActiveFilter();
+  renderBulkBar();
 }
 
 // ---- Sidebar ---------------------------------------------------------------
@@ -126,7 +161,6 @@ function renderSidebar() {
     for (const t of a.tags) tagCounts.set(t, (tagCounts.get(t) || 0) + 1);
   }
 
-  // Views
   sideStatus.innerHTML = '';
   sideStatus.appendChild(sideItem({
     label: 'All accounts', count: accounts.length, active: filters.view === 'all',
@@ -139,7 +173,6 @@ function renderSidebar() {
     }));
   }
 
-  // Attributes
   sideAttrs.innerHTML = '';
   sideAttrs.appendChild(sideItem({
     label: 'Voice enabled', count: voice, active: filters.voice,
@@ -150,7 +183,6 @@ function renderSidebar() {
     onClick: () => { filters.verified = !filters.verified; render(); },
   }));
 
-  // Tags
   sideTags.innerHTML = '';
   const tags = [...tagCounts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
   if (tags.length === 0) {
@@ -203,6 +235,8 @@ function renderTable() {
   if (items.length === 0) {
     emptyEl.hidden = false;
     emptyEl.textContent = accounts.length === 0 ? 'No accounts yet. Click + New.' : 'No accounts match this filter.';
+    updateSortIndicators();
+    updateCheckAll();
     return;
   }
   emptyEl.hidden = true;
@@ -210,8 +244,10 @@ function renderTable() {
   for (const a of items) {
     const tr = document.createElement('tr');
     tr.dataset.id = a.id;
+    if (selected.has(a.id)) tr.classList.add('selected');
+    tr.appendChild(cellCheck(a));
     tr.appendChild(cellStatus(a));
-    tr.appendChild(cell(a.pseudo || '(no username)', 'cell-pseudo'));
+    tr.appendChild(cellUser(a));
     tr.appendChild(cell(a.ageRange, a.ageRange === 'Unknown' ? 'cell-muted' : ''));
     tr.appendChild(boolCell(a.voiceChat));
     tr.appendChild(boolCell(a.ageVerified));
@@ -221,12 +257,32 @@ function renderTable() {
     tr.addEventListener('click', () => openDrawer(a.id));
     bodyEl.appendChild(tr);
   }
+  updateSortIndicators();
+  updateCheckAll();
 }
 
 function cell(text, cls) {
   const td = document.createElement('td');
   if (cls) td.className = cls;
   td.textContent = text;
+  return td;
+}
+
+function cellCheck(a) {
+  const td = document.createElement('td');
+  td.className = 'col-check';
+  const cb = document.createElement('input');
+  cb.type = 'checkbox';
+  cb.checked = selected.has(a.id);
+  cb.addEventListener('click', (e) => e.stopPropagation());
+  cb.addEventListener('change', () => {
+    if (cb.checked) selected.add(a.id); else selected.delete(a.id);
+    const tr = cb.closest('tr');
+    if (tr) tr.classList.toggle('selected', cb.checked);
+    renderBulkBar();
+    updateCheckAll();
+  });
+  td.appendChild(cb);
   return td;
 }
 
@@ -238,6 +294,24 @@ function cellStatus(a) {
   const dot = document.createElement('span');
   dot.className = 'dot ' + a.status;
   wrap.append(dot, document.createTextNode(a.status));
+  td.appendChild(wrap);
+  return td;
+}
+
+function cellUser(a) {
+  const td = document.createElement('td');
+  td.className = 'cell-pseudo';
+  const wrap = document.createElement('span');
+  wrap.className = 'cell-user';
+  if (a.avatarUrl) {
+    const img = document.createElement('img');
+    img.className = 'avatar avatar-sm';
+    img.src = a.avatarUrl;
+    img.alt = '';
+    img.addEventListener('error', () => img.remove());
+    wrap.appendChild(img);
+  }
+  wrap.append(document.createTextNode(a.pseudo || '(no username)'));
   td.appendChild(wrap);
   return td;
 }
@@ -272,6 +346,38 @@ function tagsCell(tags) {
   }
   td.appendChild(wrap);
   return td;
+}
+
+function updateSortIndicators() {
+  document.querySelectorAll('.accounts-table th.sortable').forEach((th) => {
+    const ind = th.querySelector('.sort-ind');
+    if (th.dataset.sort === sort.key) {
+      th.classList.add('sorted');
+      if (ind) ind.textContent = sort.dir === 'asc' ? '▲' : '▼';
+    } else {
+      th.classList.remove('sorted');
+      if (ind) ind.textContent = '';
+    }
+  });
+}
+
+function updateCheckAll() {
+  const items = visibleAccounts();
+  const all = items.length > 0 && items.every((a) => selected.has(a.id));
+  const some = items.some((a) => selected.has(a.id));
+  const box = $('#check-all');
+  box.checked = all;
+  box.indeterminate = !all && some;
+}
+
+// ---- Bulk action bar -------------------------------------------------------
+
+function renderBulkBar() {
+  const n = selected.size;
+  const bar = $('#bulkbar');
+  if (n === 0) { bar.hidden = true; return; }
+  bar.hidden = false;
+  $('#bulk-count').textContent = `${n} selected`;
 }
 
 // ---- Drawer ----------------------------------------------------------------
@@ -309,6 +415,11 @@ function renderDetail() {
   bindGames(node, a);
   bindTags(node, 'tags', a);
 
+  // Avatar + Roblox info
+  const avatar = node.querySelector('[data-el="avatar"]');
+  if (a.avatarUrl) { avatar.src = a.avatarUrl; avatar.hidden = false; } else { avatar.hidden = true; }
+  paintRobloxMeta(node.querySelector('[data-el="roblox-meta"]'), a);
+
   const pwInput = node.querySelector('[data-field="password"]');
   node.querySelector('[data-act="toggle-pw"]').addEventListener('click', (e) => {
     const shown = pwInput.type === 'text';
@@ -317,9 +428,55 @@ function renderDetail() {
   });
   node.querySelector('[data-act="copy-pw"]').addEventListener('click', () => copy(a.password, 'Password copied'));
   node.querySelector('[data-act="copy-pseudo"]').addEventListener('click', () => copy(a.pseudo, 'Username copied'));
+  node.querySelector('[data-act="copy-combo"]').addEventListener('click', () => copy(`${a.pseudo}:${a.password}`, 'user:pass copied'));
   node.querySelector('[data-act="delete"]').addEventListener('click', () => deleteAccount(a.id));
+  node.querySelector('[data-act="enrich"]').addEventListener('click', (e) => enrichAccount(a, e.target));
+  node.querySelector('[data-act="open-profile"]').addEventListener('click', () => {
+    if (!a.userId) { toast('Fetch Roblox info first'); return; }
+    window.api.openUrl(`https://www.roblox.com/users/${a.userId}/profile`);
+  });
 
   drawerBody.appendChild(node);
+}
+
+function paintRobloxMeta(el, a) {
+  el.innerHTML = '';
+  if (!a.userId) {
+    el.textContent = 'No Roblox info yet — click "Fetch Roblox info".';
+    return;
+  }
+  const bits = [];
+  if (a.displayName) bits.push(a.displayName);
+  bits.push('id ' + a.userId);
+  if (a.created) bits.push('created ' + a.created);
+  el.append(document.createTextNode(bits.join('  ·  ')));
+  if (a.robloxBanned) {
+    const badge = document.createElement('span');
+    badge.className = 'rb-badge';
+    badge.textContent = 'Terminated';
+    el.appendChild(badge);
+  }
+}
+
+async function enrichAccount(a, btn) {
+  const name = a.pseudo.trim();
+  if (!name) { toast('Enter a username first'); return; }
+  const old = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Fetching…';
+  const r = await window.api.enrich(name);
+  btn.disabled = false;
+  btn.textContent = old;
+  if (!r.ok) { toast(r.error || 'Roblox lookup failed'); return; }
+  a.userId = r.userId;
+  a.displayName = r.displayName;
+  a.created = r.created;
+  a.avatarUrl = r.avatarUrl;
+  a.robloxBanned = r.robloxBanned;
+  save();
+  renderDetail();
+  render();
+  toast('Roblox info updated' + (r.robloxBanned ? ' — account is terminated' : ''));
 }
 
 // ---- Field binders ---------------------------------------------------------
@@ -537,6 +694,53 @@ async function doImport() {
   toast(`${incoming.length} account(s) imported`);
 }
 
+// ---- Bulk add (paste user:pass) -------------------------------------------
+
+function parseBulk(text) {
+  const out = [];
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line) continue;
+    let user;
+    let pass = '';
+    const idx = line.search(/[:,\t]/);
+    if (idx >= 0) {
+      user = line.slice(0, idx).trim();
+      pass = line.slice(idx + 1).trim();
+    } else {
+      const sp = line.search(/\s/);
+      if (sp >= 0) { user = line.slice(0, sp).trim(); pass = line.slice(sp + 1).trim(); }
+      else { user = line; }
+    }
+    if (user) out.push({ pseudo: user, password: pass });
+  }
+  return out;
+}
+
+function openBulk() {
+  $('#bulk-text').value = '';
+  $('#bulk-preview').textContent = '';
+  $('#modal-backdrop').hidden = false;
+  $('#bulk-modal').hidden = false;
+  $('#bulk-text').focus();
+}
+
+function closeBulk() {
+  $('#modal-backdrop').hidden = true;
+  $('#bulk-modal').hidden = true;
+}
+
+function doBulkAdd() {
+  const parsed = parseBulk($('#bulk-text').value);
+  if (parsed.length === 0) { toast('Nothing to add'); return; }
+  const created = parsed.map((p) => normalize(p));
+  accounts.unshift(...created);
+  closeBulk();
+  save();
+  render();
+  toast(`${created.length} account(s) added`);
+}
+
 // ---- Toast -----------------------------------------------------------------
 
 let toastTimer = null;
@@ -555,9 +759,79 @@ $('#search').addEventListener('input', (e) => { search = e.target.value; renderT
 $('#btn-new').addEventListener('click', newAccount);
 $('#btn-export').addEventListener('click', doExport);
 $('#btn-import').addEventListener('click', doImport);
+$('#btn-bulk').addEventListener('click', openBulk);
 $('#drawer-close').addEventListener('click', closeDrawer);
 backdropEl.addEventListener('click', closeDrawer);
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && drawerEl.classList.contains('open')) closeDrawer(); });
+
+// Sorting
+document.querySelectorAll('.accounts-table th.sortable').forEach((th) => {
+  th.addEventListener('click', () => {
+    const key = th.dataset.sort;
+    if (sort.key === key) sort.dir = sort.dir === 'asc' ? 'desc' : 'asc';
+    else { sort.key = key; sort.dir = 'asc'; }
+    renderTable();
+  });
+});
+
+// Select all (visible)
+$('#check-all').addEventListener('change', (e) => {
+  const items = visibleAccounts();
+  if (e.target.checked) items.forEach((a) => selected.add(a.id));
+  else items.forEach((a) => selected.delete(a.id));
+  renderTable();
+  renderBulkBar();
+});
+
+// Bulk actions
+$('#bulk-status').addEventListener('change', (e) => {
+  const v = e.target.value;
+  if (!v) return;
+  accounts.forEach((a) => { if (selected.has(a.id)) a.status = v; });
+  e.target.value = '';
+  save();
+  render();
+  toast(`Status set for ${selected.size} account(s)`);
+});
+function bulkAddTag() {
+  const t = $('#bulk-tag').value.trim();
+  if (!t) return;
+  accounts.forEach((a) => { if (selected.has(a.id) && !a.tags.includes(t)) a.tags.push(t); });
+  $('#bulk-tag').value = '';
+  save();
+  render();
+  toast(`Tag "${t}" added`);
+}
+$('#bulk-tag-btn').addEventListener('click', bulkAddTag);
+$('#bulk-tag').addEventListener('keydown', (e) => { if (e.key === 'Enter') bulkAddTag(); });
+$('#bulk-delete').addEventListener('click', async () => {
+  const n = selected.size;
+  if (!n) return;
+  const res = await window.api.confirm(`Delete ${n} selected account(s)? This cannot be undone.`, ['Delete', 'Cancel']);
+  if (res !== 0) return;
+  accounts = accounts.filter((a) => !selected.has(a.id));
+  selected.clear();
+  if (selectedId && !accounts.some((a) => a.id === selectedId)) closeDrawer();
+  save();
+  render();
+  toast(`${n} account(s) deleted`);
+});
+$('#bulk-clear').addEventListener('click', () => { selected.clear(); render(); });
+
+// Bulk add modal
+$('#bulk-text').addEventListener('input', () => {
+  const n = parseBulk($('#bulk-text').value).length;
+  $('#bulk-preview').textContent = n ? `${n} account(s) detected` : '';
+});
+$('#bulk-add').addEventListener('click', doBulkAdd);
+$('#bulk-cancel').addEventListener('click', closeBulk);
+$('#modal-backdrop').addEventListener('click', closeBulk);
+
+// Keyboard
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  if (!$('#bulk-modal').hidden) closeBulk();
+  else if (drawerEl.classList.contains('open')) closeDrawer();
+});
 
 // ---- Boot ------------------------------------------------------------------
 

@@ -325,13 +325,14 @@ input, textarea, select, button { font-family: inherit; }
   right: 0;
   z-index: 3;
   background: var(--surface);
+  border-left: 1px solid var(--border);
 }
 .accounts-table td.col-open {
   position: sticky;
   right: 0;
   z-index: 1;
   background: var(--bg);
-  box-shadow: -10px 0 10px -10px rgba(0, 0, 0, 0.35);
+  border-left: 1px solid var(--border);
 }
 .accounts-table tbody tr:hover td.col-open { background: var(--surface-2); }
 .open-btn { height: 28px; padding: 0 16px; font-size: 12.5px; }

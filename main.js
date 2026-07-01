@@ -478,7 +478,7 @@ function buildFillScript(username, password) {
       var p = document.querySelector('#login-password, input[type="password"]');
       if (u && p) {
         setVal(u, U); setVal(p, P);
-        var b = document.querySelector('#login-button, button[type="submit"]');
+        var b = document.querySelector('#login-button, button.login-button');
         if (b && !b.disabled && !clicked) { clicked = true; clearInterval(t); setTimeout(function(){ b.click(); }, 300); }
         else if (tries > 40) { clearInterval(t); }
       } else if (tries > 40) { clearInterval(t); }

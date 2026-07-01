@@ -27,6 +27,7 @@
     "files": [
       "main.js",
       "preload.js",
+      "login-preload.js",
       "index.html",
       "styles.css",
       "renderer.js"

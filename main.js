@@ -564,8 +564,9 @@ ipcMain.handle('roblox:login', async (_evt, payload) => {
     backgroundColor: '#ffffff',
     title: 'Roblox — ' + (username || ''),
     webPreferences: {
+      preload: path.join(__dirname, 'login-preload.js'),
       partition: 'persist:roblox-' + key,
-      contextIsolation: true,
+      contextIsolation: false,
       nodeIntegration: false,
     },
   });

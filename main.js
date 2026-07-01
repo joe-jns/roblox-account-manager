@@ -1,4 +1,5 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { autoUpdater } = require('electron-updater');
 const path = require('node:path');
 const fs = require('node:fs/promises');
 
@@ -27,6 +28,14 @@ function createWindow() {
 
 app.whenReady().then(() => {
   createWindow();
+
+  // Auto-update depuis les Releases GitHub (uniquement en version installée).
+  // Vérifie au lancement ; si une mise à jour est trouvée, elle se télécharge
+  // et s'installe à la fermeture de l'app.
+  if (app.isPackaged) {
+    autoUpdater.checkForUpdatesAndNotify().catch(() => {});
+  }
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });

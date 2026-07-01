@@ -808,15 +808,34 @@ html.theme-light .modal-backdrop { background: rgba(20, 24, 30, 0.35); }
 .set-desc { font-size: 12px; color: var(--muted); margin-top: 2px; }
 .btn.icon-only { padding: 0; width: 32px; font-size: 15px; }
 
-.set-section {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--muted-2);
-  margin: 16px 0 0;
-}
-.set-section:first-child { margin-top: 0; }
 .set-inline { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+
+/* Settings two-pane layout */
+.modal-wide { width: 720px; }
+.settings-layout { display: flex; min-height: 380px; max-height: 62vh; }
+.settings-nav {
+  width: 176px;
+  flex: 0 0 176px;
+  border-right: 1px solid var(--border);
+  padding: 12px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.settings-navitem {
+  text-align: left;
+  padding: 8px 10px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.settings-navitem:hover { background: var(--surface-2); color: var(--text); }
+.settings-navitem.active { background: var(--surface-3); color: var(--text); font-weight: 500; }
+.settings-panes { flex: 1 1 auto; overflow-y: auto; padding: 6px 20px 14px; }
+.pane-title { font-size: 14px; font-weight: 600; margin: 10px 0 2px; }
 input[type="color"] {
   width: 42px; height: 30px;
   padding: 2px;

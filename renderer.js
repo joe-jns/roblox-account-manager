@@ -952,7 +952,13 @@ function updateMpStatus(on) {
   $('#mp-remove').hidden = !on;
 }
 
+function switchSettingsPane(name) {
+  document.querySelectorAll('.settings-navitem').forEach((b) => b.classList.toggle('active', b.dataset.pane === name));
+  document.querySelectorAll('.settings-pane').forEach((p) => { p.hidden = p.dataset.pane !== name; });
+}
+
 function openSettings() {
+  switchSettingsPane('appearance');
   document.querySelectorAll('#set-theme button').forEach((b) => b.classList.toggle('active', b.dataset.value === settings.theme));
   $('#set-accent').value = settings.accent || defaultAccent();
   $('#set-autofetch').checked = settings.autoFetch;
@@ -1044,6 +1050,10 @@ $('#search').addEventListener('input', (e) => { search = e.target.value; renderT
 $('#btn-settings').addEventListener('click', openSettings);
 $('#settings-close').addEventListener('click', closeSettings);
 $('#settings-backdrop').addEventListener('click', closeSettings);
+$('#settings-nav').addEventListener('click', (e) => {
+  const b = e.target.closest('.settings-navitem');
+  if (b) switchSettingsPane(b.dataset.pane);
+});
 $('#set-theme').addEventListener('click', (e) => {
   const btn = e.target.closest('button');
   if (!btn) return;

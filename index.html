@@ -206,94 +206,110 @@
   </div>
 
   <div class="modal-backdrop" id="settings-backdrop" hidden></div>
-  <div class="modal" id="settings-modal" hidden>
+  <div class="modal modal-wide" id="settings-modal" hidden>
     <div class="modal-head">Settings</div>
-    <div class="modal-body">
-      <div class="set-section">Appearance</div>
-      <div class="set-row">
-        <div>
-          <div class="set-label">Theme</div>
-          <div class="set-desc">Dark, or light with a red accent.</div>
+    <div class="settings-layout">
+      <nav class="settings-nav" id="settings-nav">
+        <button class="settings-navitem active" data-pane="appearance">Appearance</button>
+        <button class="settings-navitem" data-pane="roblox">Roblox</button>
+        <button class="settings-navitem" data-pane="data">Data &amp; safety</button>
+        <button class="settings-navitem" data-pane="about">About</button>
+      </nav>
+      <div class="settings-panes">
+        <div class="settings-pane" data-pane="appearance">
+          <div class="pane-title">Appearance</div>
+          <div class="set-row">
+            <div>
+              <div class="set-label">Theme</div>
+              <div class="set-desc">Dark, or light with a red accent.</div>
+            </div>
+            <div class="segmented" id="set-theme">
+              <button data-value="dark">Dark</button>
+              <button data-value="light">Light</button>
+            </div>
+          </div>
+          <div class="set-row">
+            <div>
+              <div class="set-label">Accent color</div>
+              <div class="set-desc">Custom highlight color.</div>
+            </div>
+            <div class="set-inline">
+              <input type="color" id="set-accent" value="#E12028" />
+              <button class="btn" id="set-accent-reset">Reset</button>
+            </div>
+          </div>
         </div>
-        <div class="segmented" id="set-theme">
-          <button data-value="dark">Dark</button>
-          <button data-value="light">Light</button>
-        </div>
-      </div>
-      <div class="set-row">
-        <div>
-          <div class="set-label">Accent color</div>
-          <div class="set-desc">Custom highlight color.</div>
-        </div>
-        <div class="set-inline">
-          <input type="color" id="set-accent" value="#E12028" />
-          <button class="btn" id="set-accent-reset">Reset</button>
-        </div>
-      </div>
 
-      <div class="set-section">Roblox</div>
-      <div class="set-row">
-        <div>
-          <div class="set-label">Auto-fetch on launch</div>
-          <div class="set-desc">Fetch missing Roblox info when the app opens.</div>
+        <div class="settings-pane" data-pane="roblox" hidden>
+          <div class="pane-title">Roblox</div>
+          <div class="set-row">
+            <div>
+              <div class="set-label">Auto-fetch on launch</div>
+              <div class="set-desc">Fetch missing Roblox info when the app opens.</div>
+            </div>
+            <label class="switch"><input type="checkbox" id="set-autofetch" /><span class="track"></span></label>
+          </div>
+          <div class="set-row">
+            <div>
+              <div class="set-label">Refresh all Roblox info</div>
+              <div class="set-desc">Re-fetch avatars and info for every account now.</div>
+            </div>
+            <button class="btn" id="set-refresh-all">Refresh</button>
+          </div>
+          <div class="set-row">
+            <div>
+              <div class="set-label">Log out all accounts</div>
+              <div class="set-desc">Clear every saved Roblox login session.</div>
+            </div>
+            <button class="btn btn-danger" id="set-logout-all">Log out</button>
+          </div>
         </div>
-        <label class="switch"><input type="checkbox" id="set-autofetch" /><span class="track"></span></label>
-      </div>
-      <div class="set-row">
-        <div>
-          <div class="set-label">Refresh all Roblox info</div>
-          <div class="set-desc">Re-fetch avatars and info for every account now.</div>
-        </div>
-        <button class="btn" id="set-refresh-all">Refresh</button>
-      </div>
-      <div class="set-row">
-        <div>
-          <div class="set-label">Log out all accounts</div>
-          <div class="set-desc">Clear every saved Roblox login session.</div>
-        </div>
-        <button class="btn btn-danger" id="set-logout-all">Log out</button>
-      </div>
 
-      <div class="set-section">Data &amp; safety</div>
-      <div class="set-row">
-        <div>
-          <div class="set-label">Confirm before delete</div>
-          <div class="set-desc">Ask before deleting an account.</div>
+        <div class="settings-pane" data-pane="data" hidden>
+          <div class="pane-title">Data &amp; safety</div>
+          <div class="set-row">
+            <div>
+              <div class="set-label">Confirm before delete</div>
+              <div class="set-desc">Ask before deleting an account.</div>
+            </div>
+            <label class="switch"><input type="checkbox" id="set-confirm-delete" /><span class="track"></span></label>
+          </div>
+          <div class="set-row">
+            <div>
+              <div class="set-label">Auto-backup on close</div>
+              <div class="set-desc">Save a dated copy when you quit.</div>
+            </div>
+            <label class="switch"><input type="checkbox" id="set-autobackup" /><span class="track"></span></label>
+          </div>
+          <div class="set-row">
+            <div>
+              <div class="set-label">Data folder</div>
+              <div class="set-desc">Where accounts.json lives.</div>
+            </div>
+            <button class="btn" id="set-open-folder">Open</button>
+          </div>
+          <div class="set-row">
+            <div>
+              <div class="set-label">Master password</div>
+              <div class="set-desc" id="mp-status">Off — data stored in plain text.</div>
+            </div>
+            <div class="set-inline">
+              <button class="btn" id="mp-set">Set</button>
+              <button class="btn btn-danger" id="mp-remove" hidden>Remove</button>
+            </div>
+          </div>
         </div>
-        <label class="switch"><input type="checkbox" id="set-confirm-delete" /><span class="track"></span></label>
-      </div>
-      <div class="set-row">
-        <div>
-          <div class="set-label">Auto-backup on close</div>
-          <div class="set-desc">Save a dated copy when you quit.</div>
-        </div>
-        <label class="switch"><input type="checkbox" id="set-autobackup" /><span class="track"></span></label>
-      </div>
-      <div class="set-row">
-        <div>
-          <div class="set-label">Data folder</div>
-          <div class="set-desc">Where accounts.json lives.</div>
-        </div>
-        <button class="btn" id="set-open-folder">Open</button>
-      </div>
-      <div class="set-row">
-        <div>
-          <div class="set-label">Master password</div>
-          <div class="set-desc" id="mp-status">Off — data stored in plain text.</div>
-        </div>
-        <div class="set-inline">
-          <button class="btn" id="mp-set">Set</button>
-          <button class="btn btn-danger" id="mp-remove" hidden>Remove</button>
-        </div>
-      </div>
 
-      <div class="set-section">About</div>
-      <div class="set-row">
-        <div>
-          <div class="set-label">Version</div>
-          <div class="set-desc">Roblox Account Manager</div>
+        <div class="settings-pane" data-pane="about" hidden>
+          <div class="pane-title">About</div>
+          <div class="set-row">
+            <div>
+              <div class="set-label">Version</div>
+              <div class="set-desc">Roblox Account Manager</div>
+            </div>
+            <span class="set-desc" id="set-version">—</span>
+          </div>
         </div>
-        <span class="set-desc" id="set-version">—</span>
       </div>
     </div>
     <div class="modal-foot">

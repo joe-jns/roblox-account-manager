@@ -5,5 +5,6 @@ contextBridge.exposeInMainWorld('api', {
   save: (accounts) => ipcRenderer.invoke('accounts:save', accounts),
   export: (accounts) => ipcRenderer.invoke('accounts:export', accounts),
   import: () => ipcRenderer.invoke('accounts:import'),
+  resolveGame: (id) => ipcRenderer.invoke('game:resolve', id),
   confirm: (message, buttons) => ipcRenderer.invoke('ui:confirm', { message, buttons }),
 });

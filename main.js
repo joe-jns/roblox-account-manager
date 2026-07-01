@@ -86,6 +86,40 @@ ipcMain.handle('accounts:import', async () => {
   return { ok: true, accounts: data };
 });
 
+// ---- Roblox game name resolution ------------------------------------------
+
+async function fetchJSON(url) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 8000);
+  try {
+    const res = await fetch(url, { signal: ctrl.signal, headers: { Accept: 'application/json' } });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// Accepte un place ID (ex: 14034093693) ou un universe ID, renvoie le nom officiel.
+ipcMain.handle('game:resolve', async (_evt, rawId) => {
+  const id = String(rawId).trim();
+  if (!/^\d+$/.test(id)) return { ok: false, error: 'ID invalide' };
+
+  // 1) place ID -> universe ID
+  let universeId = null;
+  const uni = await fetchJSON(`https://apis.roblox.com/universes/v1/places/${id}/universe`);
+  if (uni && uni.universeId) universeId = uni.universeId;
+
+  // 2) sinon on tente l'ID tel quel comme universe ID
+  const candidate = universeId || id;
+  const games = await fetchJSON(`https://games.roblox.com/v1/games?universeIds=${candidate}`);
+  const name = games && Array.isArray(games.data) && games.data[0] && games.data[0].name;
+  if (name) return { ok: true, id, name };
+  return { ok: false, error: 'Jeu introuvable' };
+});
+
 ipcMain.handle('ui:confirm', async (_evt, { message, buttons }) => {
   const { response } = await dialog.showMessageBox(win, {
     type: 'question',

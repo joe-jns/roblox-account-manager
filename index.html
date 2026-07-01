@@ -20,25 +20,44 @@
     </div>
   </header>
 
-  <main class="layout">
-    <aside class="sidebar">
-      <div class="search-wrap">
-        <input type="text" id="search" placeholder="Rechercher un pseudo, une étiquette…" autocomplete="off" />
-      </div>
-      <div class="filters" id="filters">
-        <button class="chip" data-filter="status" data-value="Actif">Actif</button>
-        <button class="chip" data-filter="status" data-value="Averti">Averti</button>
-        <button class="chip" data-filter="status" data-value="Banni">Banni</button>
-        <button class="chip" data-filter="voice" data-value="on">Voice</button>
-        <button class="chip" data-filter="verified" data-value="on">Âge vérifié</button>
-      </div>
-      <ul class="account-list" id="account-list"></ul>
-    </aside>
+  <div class="toolbar">
+    <input type="text" id="search" placeholder="Rechercher un pseudo, une étiquette…" autocomplete="off" />
+    <div class="filters" id="filters">
+      <button class="chip" data-filter="status" data-value="Actif">Actif</button>
+      <button class="chip" data-filter="status" data-value="Averti">Averti</button>
+      <button class="chip" data-filter="status" data-value="Banni">Banni</button>
+      <button class="chip" data-filter="voice" data-value="on">Voice</button>
+      <button class="chip" data-filter="verified" data-value="on">Âge vérifié</button>
+    </div>
+  </div>
 
-    <section class="detail" id="detail">
-      <!-- rempli par renderer.js -->
-    </section>
+  <main class="table-wrap">
+    <table class="accounts-table">
+      <thead>
+        <tr>
+          <th class="col-status">Statut</th>
+          <th>Pseudo</th>
+          <th>Âge</th>
+          <th class="center">Voice</th>
+          <th class="center">Vérifié</th>
+          <th>Jeux bannis</th>
+          <th>Étiquettes</th>
+          <th>Ajouté le</th>
+        </tr>
+      </thead>
+      <tbody id="table-body"></tbody>
+    </table>
+    <div class="table-empty" id="table-empty" hidden></div>
   </main>
+
+  <div class="drawer-backdrop" id="backdrop" hidden></div>
+  <aside class="drawer" id="drawer" aria-hidden="true">
+    <div class="drawer-head">
+      <span class="drawer-title">Fiche du compte</span>
+      <button class="icon-btn" id="drawer-close" title="Fermer">Fermer</button>
+    </div>
+    <div class="drawer-body" id="drawer-body"></div>
+  </aside>
 
   <template id="tpl-detail">
     <div class="detail-inner">
@@ -51,7 +70,7 @@
       </div>
 
       <div class="grid">
-        <label class="field">
+        <label class="field field-wide">
           <span class="label">Mot de passe</span>
           <div class="pw-row">
             <input class="mono" type="password" data-field="password" spellcheck="false" autocomplete="off" />
@@ -64,13 +83,17 @@
           <span class="label">Tranche d'âge</span>
           <select data-field="ageRange">
             <option value="Inconnu">Inconnu</option>
-            <option value="&lt;13">&lt;13</option>
-            <option value="13+">13+</option>
-            <option value="17+">17+</option>
+            <option value="18-20">18-20</option>
+            <option value="21+">21+</option>
           </select>
         </label>
 
-        <div class="field">
+        <label class="field">
+          <span class="label">Date d'ajout</span>
+          <input type="date" data-field="dateAdded" />
+        </label>
+
+        <div class="field field-wide">
           <span class="label">Statut du compte</span>
           <div class="segmented" data-field="status">
             <button data-value="Actif">Actif</button>
@@ -79,7 +102,7 @@
           </div>
         </div>
 
-        <div class="field">
+        <div class="field field-wide">
           <span class="label">Options</span>
           <div class="toggle-row">
             <label class="switch">
@@ -96,10 +119,10 @@
         </div>
 
         <div class="field field-wide">
-          <span class="label">Jeux bannis</span>
+          <span class="label">Jeux bannis <span class="label-hint">— tape l'ID du jeu, le nom est récupéré</span></span>
           <div class="tag-input" data-field="bannedGames">
             <div class="tags"></div>
-            <input type="text" placeholder="Nom du jeu + Entrée" spellcheck="false" autocomplete="off" />
+            <input type="text" placeholder="ID du jeu (ex: 14034093693) + Entrée" spellcheck="false" autocomplete="off" />
           </div>
         </div>
 
@@ -111,23 +134,11 @@
           </div>
         </div>
 
-        <label class="field">
-          <span class="label">Date d'ajout</span>
-          <input type="date" data-field="dateAdded" />
-        </label>
-
         <label class="field field-wide">
           <span class="label">Notes</span>
           <textarea data-field="notes" rows="4" placeholder="Notes libres…"></textarea>
         </label>
       </div>
-    </div>
-  </template>
-
-  <template id="tpl-empty">
-    <div class="empty">
-      <p class="empty-title">Aucun compte sélectionné</p>
-      <p class="empty-sub">Choisis un compte à gauche, ou crée-en un avec <b>+ Nouveau</b>.</p>
     </div>
   </template>
 

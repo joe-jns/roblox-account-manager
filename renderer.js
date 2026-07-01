@@ -8,16 +8,27 @@ let search = '';
 const filters = { status: null, voice: false, verified: false };
 
 const $ = (sel, root = document) => root.querySelector(sel);
-const listEl = $('#account-list');
-const detailEl = $('#detail');
+const bodyEl = $('#table-body');
+const emptyEl = $('#table-empty');
 const countEl = $('#count');
+const drawerEl = $('#drawer');
+const backdropEl = $('#backdrop');
+const drawerBody = $('#drawer-body');
 
 // ---- Model helpers ---------------------------------------------------------
 
 const STATUSES = ['Actif', 'Averti', 'Banni'];
+const AGES = ['Inconnu', '18-20', '21+'];
 
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
+}
+
+function normalizeGame(g) {
+  if (typeof g === 'string') {
+    return { id: /^\d+$/.test(g) ? g : null, name: g };
+  }
+  return { id: g && g.id != null ? String(g.id) : null, name: (g && g.name) || String((g && g.id) || '') };
 }
 
 function normalize(a) {
@@ -25,10 +36,10 @@ function normalize(a) {
     id: a.id || crypto.randomUUID(),
     pseudo: a.pseudo || '',
     password: a.password || '',
-    ageRange: a.ageRange || 'Inconnu',
+    ageRange: AGES.includes(a.ageRange) ? a.ageRange : 'Inconnu',
     voiceChat: !!a.voiceChat,
     ageVerified: !!a.ageVerified,
-    bannedGames: Array.isArray(a.bannedGames) ? a.bannedGames : [],
+    bannedGames: (Array.isArray(a.bannedGames) ? a.bannedGames : []).map(normalizeGame),
     status: STATUSES.includes(a.status) ? a.status : 'Actif',
     tags: Array.isArray(a.tags) ? a.tags : [],
     dateAdded: a.dateAdded || todayISO(),
@@ -66,74 +77,111 @@ function visibleAccounts() {
   });
 }
 
-// ---- List rendering --------------------------------------------------------
+// ---- Table rendering -------------------------------------------------------
 
-function renderList() {
+function renderTable() {
   const items = visibleAccounts();
   countEl.textContent = `${accounts.length} compte${accounts.length > 1 ? 's' : ''}`;
-  listEl.innerHTML = '';
+  bodyEl.innerHTML = '';
 
   if (items.length === 0) {
-    const li = document.createElement('li');
-    li.className = 'list-empty';
-    li.textContent = accounts.length === 0 ? 'Aucun compte. Clique sur + Nouveau.' : 'Aucun résultat.';
-    listEl.appendChild(li);
+    emptyEl.hidden = false;
+    emptyEl.textContent = accounts.length === 0 ? 'Aucun compte. Clique sur + Nouveau.' : 'Aucun résultat pour ce filtre.';
     return;
   }
+  emptyEl.hidden = true;
 
   for (const a of items) {
-    const li = document.createElement('li');
-    li.className = 'account-item' + (a.id === selectedId ? ' selected' : '');
-    li.dataset.id = a.id;
-
-    const dot = document.createElement('span');
-    dot.className = 'dot ' + a.status;
-    dot.title = a.status;
-
-    const body = document.createElement('div');
-    body.className = 'item-body';
-    const name = document.createElement('div');
-    name.className = 'item-name';
-    name.textContent = a.pseudo || '(sans pseudo)';
-    const meta = document.createElement('div');
-    meta.className = 'item-meta';
-    meta.textContent = metaLine(a);
-    body.append(name, meta);
-
-    li.append(dot, body);
-    li.addEventListener('click', () => selectAccount(a.id));
-    listEl.appendChild(li);
+    const tr = document.createElement('tr');
+    tr.dataset.id = a.id;
+    tr.appendChild(cellStatus(a));
+    tr.appendChild(cell(a.pseudo || '(sans pseudo)', 'cell-pseudo'));
+    tr.appendChild(cell(a.ageRange, a.ageRange === 'Inconnu' ? 'cell-muted' : ''));
+    tr.appendChild(boolCell(a.voiceChat));
+    tr.appendChild(boolCell(a.ageVerified));
+    tr.appendChild(gamesCell(a.bannedGames));
+    tr.appendChild(tagsCell(a.tags));
+    tr.appendChild(cell(a.dateAdded, 'cell-muted'));
+    tr.addEventListener('click', () => openDrawer(a.id));
+    bodyEl.appendChild(tr);
   }
 }
 
-function metaLine(a) {
-  const bits = [a.status];
-  if (a.ageVerified) bits.push('vérifié');
-  if (a.voiceChat) bits.push('voice');
-  if (a.tags.length) bits.push('#' + a.tags.join(' #'));
-  return bits.join(' · ');
+function cell(text, cls) {
+  const td = document.createElement('td');
+  if (cls) td.className = cls;
+  td.textContent = text;
+  return td;
 }
 
-// ---- Detail rendering ------------------------------------------------------
+function cellStatus(a) {
+  const td = document.createElement('td');
+  td.className = 'col-status';
+  const wrap = document.createElement('span');
+  wrap.className = 'cell-status';
+  const dot = document.createElement('span');
+  dot.className = 'dot ' + a.status;
+  wrap.append(dot, document.createTextNode(a.status));
+  td.appendChild(wrap);
+  return td;
+}
 
-function selectAccount(id) {
+function boolCell(v) {
+  const td = document.createElement('td');
+  td.className = 'center';
+  const s = document.createElement('span');
+  s.className = v ? 'yes' : 'no';
+  s.textContent = v ? '✓' : '–';
+  td.appendChild(s);
+  return td;
+}
+
+function gamesCell(games) {
+  if (!games.length) return cell('–', 'cell-muted');
+  const td = document.createElement('td');
+  td.textContent = games.map((g) => g.name).join(', ');
+  return td;
+}
+
+function tagsCell(tags) {
+  const td = document.createElement('td');
+  if (!tags.length) { td.className = 'cell-muted'; td.textContent = '–'; return td; }
+  const wrap = document.createElement('div');
+  wrap.className = 'cell-tags';
+  for (const t of tags) {
+    const s = document.createElement('span');
+    s.className = 'mini-tag';
+    s.textContent = t;
+    wrap.appendChild(s);
+  }
+  td.appendChild(wrap);
+  return td;
+}
+
+// ---- Drawer ----------------------------------------------------------------
+
+function openDrawer(id) {
   selectedId = id;
-  renderList();
   renderDetail();
+  drawerEl.classList.add('open');
+  drawerEl.setAttribute('aria-hidden', 'false');
+  backdropEl.hidden = false;
+}
+
+function closeDrawer() {
+  drawerEl.classList.remove('open');
+  drawerEl.setAttribute('aria-hidden', 'true');
+  backdropEl.hidden = true;
+  selectedId = null;
 }
 
 function renderDetail() {
   const a = getSelected();
-  detailEl.innerHTML = '';
-
-  if (!a) {
-    detailEl.appendChild($('#tpl-empty').content.cloneNode(true));
-    return;
-  }
+  drawerBody.innerHTML = '';
+  if (!a) return;
 
   const node = $('#tpl-detail').content.cloneNode(true);
 
-  // Simple value fields
   bindText(node, 'pseudo', a);
   bindText(node, 'password', a);
   bindText(node, 'notes', a);
@@ -142,10 +190,9 @@ function renderDetail() {
   bindCheckbox(node, 'voiceChat', a);
   bindCheckbox(node, 'ageVerified', a);
   bindSegmented(node, 'status', a);
-  bindTags(node, 'bannedGames', a);
+  bindGames(node, a);
   bindTags(node, 'tags', a);
 
-  // Password reveal + copy + delete + copy pseudo
   const pwInput = node.querySelector('[data-field="password"]');
   node.querySelector('[data-act="toggle-pw"]').addEventListener('click', (e) => {
     const shown = pwInput.type === 'text';
@@ -156,7 +203,7 @@ function renderDetail() {
   node.querySelector('[data-act="copy-pseudo"]').addEventListener('click', () => copy(a.pseudo, 'Pseudo copié'));
   node.querySelector('[data-act="delete"]').addEventListener('click', () => deleteAccount(a.id));
 
-  detailEl.appendChild(node);
+  drawerBody.appendChild(node);
 }
 
 // ---- Field binders ---------------------------------------------------------
@@ -164,7 +211,7 @@ function renderDetail() {
 function onEdit(a, field, value) {
   a[field] = value;
   save();
-  renderList();
+  renderTable();
 }
 
 function bindText(root, field, a) {
@@ -214,42 +261,97 @@ function bindTags(root, field, a) {
       const chip = document.createElement('span');
       chip.className = 'tag';
       chip.append(document.createTextNode(tag));
-      const x = document.createElement('button');
-      x.type = 'button';
-      x.textContent = '×';
-      x.title = 'Retirer';
-      x.addEventListener('click', () => {
-        a[field].splice(i, 1);
-        paint();
-        onEdit(a, field, a[field]);
-      });
-      chip.appendChild(x);
+      chip.appendChild(removeBtn(() => { a[field].splice(i, 1); paint(); onEdit(a, field, a[field]); }));
       tagsBox.appendChild(chip);
     });
   }
 
   function add() {
     const val = input.value.trim();
-    if (val && !a[field].includes(val)) {
-      a[field].push(val);
-      paint();
-      onEdit(a, field, a[field]);
-    }
+    if (val && !a[field].includes(val)) { a[field].push(val); paint(); onEdit(a, field, a[field]); }
     input.value = '';
   }
 
   input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' || e.key === ',') {
-      e.preventDefault();
-      add();
-    } else if (e.key === 'Backspace' && input.value === '' && a[field].length) {
-      a[field].pop();
-      paint();
-      onEdit(a, field, a[field]);
+    if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); add(); }
+    else if (e.key === 'Backspace' && input.value === '' && a[field].length) {
+      a[field].pop(); paint(); onEdit(a, field, a[field]);
     }
   });
   input.addEventListener('blur', add);
   paint();
+}
+
+// Banned games: entrer un ID -> nom officiel récupéré via l'API Roblox.
+function bindGames(root, a) {
+  const wrap = root.querySelector('[data-field="bannedGames"]');
+  const tagsBox = wrap.querySelector('.tags');
+  const input = wrap.querySelector('input');
+  const placeholder = input.placeholder;
+
+  function paint() {
+    tagsBox.innerHTML = '';
+    a.bannedGames.forEach((g, i) => {
+      const chip = document.createElement('span');
+      chip.className = 'tag';
+      chip.append(document.createTextNode(g.name));
+      if (g.id) {
+        const idSpan = document.createElement('span');
+        idSpan.className = 'tag-id';
+        idSpan.textContent = '#' + g.id;
+        chip.appendChild(idSpan);
+      }
+      chip.appendChild(removeBtn(() => { a.bannedGames.splice(i, 1); paint(); commit(); }));
+      tagsBox.appendChild(chip);
+    });
+  }
+
+  function commit() { save(); renderTable(); }
+
+  async function add() {
+    const val = input.value.trim();
+    input.value = '';
+    if (!val) return;
+
+    if (/^\d+$/.test(val)) {
+      if (a.bannedGames.some((g) => g.id === val)) return;
+      input.disabled = true;
+      input.placeholder = 'récupération du nom…';
+      const r = await window.api.resolveGame(val);
+      input.disabled = false;
+      input.placeholder = placeholder;
+      input.focus();
+      if (r.ok) {
+        a.bannedGames.push({ id: r.id, name: r.name });
+      } else {
+        a.bannedGames.push({ id: val, name: 'Jeu ' + val });
+        toast('Nom introuvable pour cet ID — ajouté quand même');
+      }
+    } else {
+      if (a.bannedGames.some((g) => g.name === val)) return;
+      a.bannedGames.push({ id: null, name: val });
+    }
+    paint();
+    commit();
+  }
+
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); add(); }
+    else if (e.key === 'Backspace' && input.value === '' && a.bannedGames.length) {
+      a.bannedGames.pop(); paint(); commit();
+    }
+  });
+  input.addEventListener('blur', add);
+  paint();
+}
+
+function removeBtn(onClick) {
+  const x = document.createElement('button');
+  x.type = 'button';
+  x.textContent = '×';
+  x.title = 'Retirer';
+  x.addEventListener('click', (e) => { e.stopPropagation(); onClick(); });
+  return x;
 }
 
 // ---- Actions ---------------------------------------------------------------
@@ -257,9 +359,10 @@ function bindTags(root, field, a) {
 function newAccount() {
   const a = normalize({ pseudo: '' });
   accounts.unshift(a);
-  selectAccount(a.id);
   save();
-  const field = detailEl.querySelector('[data-field="pseudo"]');
+  renderTable();
+  openDrawer(a.id);
+  const field = drawerBody.querySelector('[data-field="pseudo"]');
   if (field) field.focus();
 }
 
@@ -269,10 +372,9 @@ async function deleteAccount(id) {
   const res = await window.api.confirm(`Supprimer ${name} ? Cette action est définitive.`, ['Supprimer', 'Annuler']);
   if (res !== 0) return;
   accounts = accounts.filter((x) => x.id !== id);
-  if (selectedId === id) selectedId = null;
   save();
-  renderList();
-  renderDetail();
+  closeDrawer();
+  renderTable();
   toast('Compte supprimé');
 }
 
@@ -292,15 +394,10 @@ async function doExport() {
 
 async function doImport() {
   const res = await window.api.import();
-  if (!res.ok) {
-    if (res.error) toast(res.error);
-    return;
-  }
+  if (!res.ok) { if (res.error) toast(res.error); return; }
   const incoming = res.accounts.map(normalize);
-  if (incoming.length === 0) {
-    toast('Fichier vide');
-    return;
-  }
+  if (incoming.length === 0) { toast('Fichier vide'); return; }
+
   let mode = 0;
   if (accounts.length > 0) {
     mode = await window.api.confirm(
@@ -318,10 +415,9 @@ async function doImport() {
       accounts.push(a);
     }
   }
-  selectedId = null;
+  closeDrawer();
   save();
-  renderList();
-  renderDetail();
+  renderTable();
   toast(`${incoming.length} compte(s) importé(s)`);
 }
 
@@ -333,15 +429,12 @@ function toast(msg) {
   el.textContent = msg;
   el.hidden = false;
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { el.hidden = true; }, 1800);
+  toastTimer = setTimeout(() => { el.hidden = true; }, 2000);
 }
 
-// ---- Filters + search wiring ----------------------------------------------
+// ---- Wiring ----------------------------------------------------------------
 
-$('#search').addEventListener('input', (e) => {
-  search = e.target.value;
-  renderList();
-});
+$('#search').addEventListener('input', (e) => { search = e.target.value; renderTable(); });
 
 $('#filters').addEventListener('click', (e) => {
   const chip = e.target.closest('.chip');
@@ -356,12 +449,15 @@ $('#filters').addEventListener('click', (e) => {
     filters[filter] = !filters[filter];
     chip.classList.toggle('active', filters[filter]);
   }
-  renderList();
+  renderTable();
 });
 
 $('#btn-new').addEventListener('click', newAccount);
 $('#btn-export').addEventListener('click', doExport);
 $('#btn-import').addEventListener('click', doImport);
+$('#drawer-close').addEventListener('click', closeDrawer);
+backdropEl.addEventListener('click', closeDrawer);
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && drawerEl.classList.contains('open')) closeDrawer(); });
 
 // ---- Boot ------------------------------------------------------------------
 
@@ -373,6 +469,5 @@ $('#btn-import').addEventListener('click', doImport);
     toast('Erreur de chargement : ' + err.message);
     accounts = [];
   }
-  renderList();
-  renderDetail();
+  renderTable();
 })();

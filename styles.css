@@ -308,8 +308,23 @@ input, textarea, select, button { font-family: inherit; }
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.col-open { width: 94px; text-align: right; white-space: nowrap; }
-.open-btn { height: 28px; padding: 0 14px; font-size: 12.5px; }
+.col-open { width: 92px; text-align: center; white-space: nowrap; }
+/* Pin the action column to the right so it stays visible on horizontal scroll. */
+.accounts-table th.col-open {
+  position: sticky;
+  right: 0;
+  z-index: 3;
+  background: var(--surface);
+}
+.accounts-table td.col-open {
+  position: sticky;
+  right: 0;
+  z-index: 1;
+  background: var(--bg);
+  box-shadow: -10px 0 10px -10px rgba(0, 0, 0, 0.35);
+}
+.accounts-table tbody tr:hover td.col-open { background: var(--surface-2); }
+.open-btn { height: 28px; padding: 0 16px; font-size: 12.5px; }
 
 .table-empty {
   padding: 60px 20px;

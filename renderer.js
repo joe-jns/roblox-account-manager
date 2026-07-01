@@ -351,8 +351,8 @@ function cellOpen(a) {
   const td = document.createElement('td');
   td.className = 'col-open';
   const btn = document.createElement('button');
-  btn.className = 'btn open-btn';
-  btn.textContent = 'Open';
+  btn.className = 'btn btn-primary open-btn';
+  btn.textContent = 'Login';
   btn.title = 'Open Roblox logged in as this account';
   btn.addEventListener('click', (e) => { e.stopPropagation(); robloxLogin(a); });
   td.appendChild(btn);

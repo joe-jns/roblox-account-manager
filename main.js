@@ -432,18 +432,27 @@ ipcMain.handle('roblox:searchGames', async (_evt, query) => {
 });
 
 // Recolor the native window controls to match the current theme (Windows).
-ipcMain.handle('theme:set', (_evt, theme) => {
-  if (!win || process.platform !== 'win32') return;
-  try {
-    if (theme === 'light') {
-      win.setTitleBarOverlay({ color: '#f6f7f9', symbolColor: '#1a1d23', height: 52 });
-    } else {
-      win.setTitleBarOverlay({ color: '#16191f', symbolColor: '#c8ccd4', height: 52 });
-    }
-  } catch {
-    // titleBarOverlay not available on this platform/config
+let currentTheme = 'dark';
+
+function overlayFor(theme, dim) {
+  if (theme === 'light') {
+    return { color: dim ? '#a7a9ac' : '#f6f7f9', symbolColor: '#1a1d23', height: 52 };
   }
+  return { color: dim ? '#0d1014' : '#16191f', symbolColor: '#c8ccd4', height: 52 };
+}
+
+function applyOverlay(dim) {
+  if (!win || process.platform !== 'win32') return;
+  try { win.setTitleBarOverlay(overlayFor(currentTheme, dim)); } catch {}
+}
+
+ipcMain.handle('theme:set', (_evt, theme) => {
+  currentTheme = theme === 'light' ? 'light' : 'dark';
+  applyOverlay(false);
 });
+
+// Darken the native window controls to match a modal backdrop, and back.
+ipcMain.handle('overlay:dim', (_evt, on) => { applyOverlay(!!on); });
 
 ipcMain.handle('app:version', () => app.getVersion());
 

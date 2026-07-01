@@ -1289,6 +1289,26 @@ document.addEventListener('keydown', (e) => {
   else if (drawerEl.classList.contains('open')) closeDrawer();
 });
 
+// Keep the native window controls dimmed while any overlay/modal is open,
+// so the top-right corner matches the darkened backdrop.
+function anyOverlayOpen() {
+  return drawerEl.classList.contains('open')
+    || !$('#settings-modal').hidden
+    || !$('#bulk-modal').hidden
+    || !$('#pw-modal').hidden
+    || !$('#update-modal').hidden
+    || !$('#lock').hidden;
+}
+(function watchOverlays() {
+  const sync = () => window.api.overlayDim(anyOverlayOpen());
+  const mo = new MutationObserver(sync);
+  ['#settings-modal', '#bulk-modal', '#pw-modal', '#update-modal', '#lock'].forEach((sel) => {
+    const el = $(sel);
+    if (el) mo.observe(el, { attributes: true, attributeFilter: ['hidden'] });
+  });
+  mo.observe(drawerEl, { attributes: true, attributeFilter: ['class'] });
+})();
+
 // ---- Boot ------------------------------------------------------------------
 
 (async function init() {

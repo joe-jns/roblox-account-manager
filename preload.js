@@ -14,6 +14,7 @@ contextBridge.exposeInMainWorld('api', {
   detect: (accountId) => ipcRenderer.invoke('roblox:detect', accountId),
   onDetected: (cb) => ipcRenderer.on('roblox:detected', (_e, data) => cb(data)),
   setTheme: (theme) => ipcRenderer.invoke('theme:set', theme),
+  overlayDim: (on) => ipcRenderer.invoke('overlay:dim', on),
   version: () => ipcRenderer.invoke('app:version'),
   updateCheck: () => ipcRenderer.invoke('update:check'),
   updateDownload: () => ipcRenderer.invoke('update:download'),

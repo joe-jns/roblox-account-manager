@@ -23,11 +23,11 @@ const activeFilterEl = $('#active-filter');
 
 // ---- Model helpers ---------------------------------------------------------
 
-const STATUSES = ['Active', 'Warned', 'Banned'];
+const STATUSES = ['Active', 'Banned'];
 const AGES = ['Unknown', '18-20', '21+'];
-const STATUS_MIGRATE = { Actif: 'Active', Averti: 'Warned', Banni: 'Banned' };
+const STATUS_MIGRATE = { Actif: 'Active', Averti: 'Active', Warned: 'Active', Banni: 'Banned' };
 const AGE_MIGRATE = { Inconnu: 'Unknown' };
-const STATUS_RANK = { Active: 0, Warned: 1, Banned: 2 };
+const STATUS_RANK = { Active: 0, Banned: 1 };
 const AGE_RANK = { Unknown: 0, '18-20': 1, '21+': 2 };
 
 function todayISO() {
@@ -36,9 +36,13 @@ function todayISO() {
 
 function normalizeGame(g) {
   if (typeof g === 'string') {
-    return { id: /^\d+$/.test(g) ? g : null, name: g };
+    return { id: /^\d+$/.test(g) ? g : null, name: g, iconUrl: null };
   }
-  return { id: g && g.id != null ? String(g.id) : null, name: (g && g.name) || String((g && g.id) || '') };
+  return {
+    id: g && g.id != null ? String(g.id) : null,
+    name: (g && g.name) || String((g && g.id) || ''),
+    iconUrl: (g && g.iconUrl) || null,
+  };
 }
 
 function normalize(a) {
@@ -150,7 +154,7 @@ function sideItem({ label, count, active, dotClass, onClick }) {
 }
 
 function renderSidebar() {
-  const byStatus = { Active: 0, Warned: 0, Banned: 0 };
+  const byStatus = { Active: 0, Banned: 0 };
   let voice = 0;
   let verified = 0;
   const tagCounts = new Map();
@@ -582,25 +586,38 @@ function bindTags(root, field, a) {
   paint();
 }
 
-// Banned games: enter an ID -> official name fetched from the Roblox API.
+// Banned games: type a name -> live search (icon + name), click to add.
+// Pasting a numeric game ID + Enter still resolves the name directly.
 function bindGames(root, a) {
   const wrap = root.querySelector('[data-field="bannedGames"]');
   const tagsBox = wrap.querySelector('.tags');
   const input = wrap.querySelector('input');
   const placeholder = input.placeholder;
 
+  const suggest = document.createElement('div');
+  suggest.className = 'suggest';
+  suggest.hidden = true;
+  wrap.appendChild(suggest);
+
+  let results = [];
+  let hi = -1;
+  let searchTimer = null;
+  let searchSeq = 0;
+
   function paint() {
     tagsBox.innerHTML = '';
     a.bannedGames.forEach((g, i) => {
       const chip = document.createElement('span');
-      chip.className = 'tag';
-      chip.append(document.createTextNode(g.name));
-      if (g.id) {
-        const idSpan = document.createElement('span');
-        idSpan.className = 'tag-id';
-        idSpan.textContent = '#' + g.id;
-        chip.appendChild(idSpan);
+      chip.className = 'tag game-tag';
+      if (g.iconUrl) {
+        const img = document.createElement('img');
+        img.className = 'game-icon';
+        img.src = g.iconUrl;
+        img.alt = '';
+        img.addEventListener('error', () => img.remove());
+        chip.appendChild(img);
       }
+      chip.append(document.createTextNode(g.name));
       chip.appendChild(removeBtn(() => { a.bannedGames.splice(i, 1); paint(); commit(); }));
       tagsBox.appendChild(chip);
     });
@@ -608,40 +625,94 @@ function bindGames(root, a) {
 
   function commit() { save(); render(); }
 
-  async function add() {
-    const val = input.value.trim();
-    input.value = '';
-    if (!val) return;
-
-    if (/^\d+$/.test(val)) {
-      if (a.bannedGames.some((g) => g.id === val)) return;
-      input.disabled = true;
-      input.placeholder = 'fetching name…';
-      const r = await window.api.resolveGame(val);
-      input.disabled = false;
-      input.placeholder = placeholder;
-      input.focus();
-      if (r.ok) {
-        a.bannedGames.push({ id: r.id, name: r.name });
-      } else {
-        a.bannedGames.push({ id: val, name: 'Game ' + val });
-        toast('No name found for this ID — added anyway');
-      }
-    } else {
-      if (a.bannedGames.some((g) => g.name === val)) return;
-      a.bannedGames.push({ id: null, name: val });
+  function addGame(g) {
+    if (!g || !g.name) return;
+    const dup = a.bannedGames.some((x) => (g.id && x.id === g.id) || (!g.id && x.name === g.name));
+    if (!dup) {
+      a.bannedGames.push({ id: g.id || null, name: g.name, iconUrl: g.iconUrl || null });
+      paint();
+      commit();
     }
-    paint();
-    commit();
+    input.value = '';
+    hideSuggest();
   }
 
+  function hideSuggest() { suggest.hidden = true; suggest.innerHTML = ''; results = []; hi = -1; }
+
+  function highlight() {
+    [...suggest.children].forEach((el, i) => el.classList.toggle('hi', i === hi));
+  }
+
+  function renderSuggest() {
+    suggest.innerHTML = '';
+    if (results.length === 0) { suggest.hidden = true; return; }
+    results.forEach((g, idx) => {
+      const item = document.createElement('div');
+      item.className = 'suggest-item' + (idx === hi ? ' hi' : '');
+      const img = document.createElement('img');
+      img.className = 'game-icon';
+      img.alt = '';
+      if (g.iconUrl) img.src = g.iconUrl;
+      item.appendChild(img);
+      const name = document.createElement('span');
+      name.className = 'suggest-name';
+      name.textContent = g.name;
+      item.appendChild(name);
+      item.addEventListener('mousedown', (e) => { e.preventDefault(); addGame(g); });
+      item.addEventListener('mouseenter', () => { hi = idx; highlight(); });
+      suggest.appendChild(item);
+    });
+    suggest.hidden = false;
+  }
+
+  async function doSearch(q) {
+    const seq = ++searchSeq;
+    let r = [];
+    try { r = await window.api.searchGames(q); } catch { r = []; }
+    if (seq !== searchSeq) return;
+    results = Array.isArray(r) ? r : [];
+    hi = results.length ? 0 : -1;
+    renderSuggest();
+  }
+
+  async function resolveById(val) {
+    input.disabled = true;
+    input.placeholder = 'fetching name…';
+    const r = await window.api.resolveGame(val);
+    input.disabled = false;
+    input.placeholder = placeholder;
+    input.focus();
+    if (r.ok) addGame({ id: r.id, name: r.name });
+    else { addGame({ id: val, name: 'Game ' + val }); toast('No name found for this ID — added anyway'); }
+  }
+
+  input.addEventListener('input', () => {
+    const v = input.value.trim();
+    clearTimeout(searchTimer);
+    if (v.length < 2 || /^\d+$/.test(v)) { hideSuggest(); return; }
+    searchTimer = setTimeout(() => doSearch(v), 250);
+  });
+
   input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); add(); }
-    else if (e.key === 'Backspace' && input.value === '' && a.bannedGames.length) {
+    if (!suggest.hidden && results.length) {
+      if (e.key === 'ArrowDown') { e.preventDefault(); hi = (hi + 1) % results.length; highlight(); return; }
+      if (e.key === 'ArrowUp') { e.preventDefault(); hi = (hi - 1 + results.length) % results.length; highlight(); return; }
+    }
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const v = input.value.trim();
+      if (!suggest.hidden && results.length && hi >= 0) { addGame(results[hi]); return; }
+      if (/^\d+$/.test(v)) { resolveById(v); return; }
+      if (v) addGame({ id: null, name: v });
+    } else if (e.key === 'Escape') {
+      if (!suggest.hidden) { e.stopPropagation(); hideSuggest(); }
+    } else if (e.key === 'Backspace' && input.value === '' && a.bannedGames.length) {
       a.bannedGames.pop(); paint(); commit();
     }
   });
-  input.addEventListener('blur', add);
+
+  input.addEventListener('blur', () => { setTimeout(hideSuggest, 120); });
+
   paint();
 }
 

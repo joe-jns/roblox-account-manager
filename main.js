@@ -241,6 +241,44 @@ ipcMain.handle('open:url', async (_evt, url) => {
   return false;
 });
 
+// Search Roblox games by name -> [{ id (rootPlaceId), name, iconUrl }]
+ipcMain.handle('roblox:searchGames', async (_evt, query) => {
+  const q = String(query || '').trim();
+  if (q.length < 2) return [];
+  const sid = '00000000-0000-0000-0000-000000000000'; // any GUID works
+  const url = `https://apis.roblox.com/search-api/omni-search?searchQuery=${encodeURIComponent(q)}&pageType=Games&sessionId=${sid}`;
+  const res = await fetchJSON(url);
+  if (!res || !Array.isArray(res.searchResults)) return [];
+
+  const games = [];
+  for (const grp of res.searchResults) {
+    for (const c of (grp.contents || [])) {
+      if ((c.universeId || c.rootPlaceId) && c.name) {
+        games.push({ universeId: c.universeId, rootPlaceId: c.rootPlaceId, name: c.name });
+      }
+      if (games.length >= 10) break;
+    }
+    if (games.length >= 10) break;
+  }
+
+  const uids = games.map((g) => g.universeId).filter(Boolean);
+  const icons = {};
+  if (uids.length) {
+    const t = await fetchJSON(
+      `https://thumbnails.roblox.com/v1/games/icons?universeIds=${uids.join(',')}&size=50x50&format=Png&isCircular=false`
+    );
+    for (const it of (t && Array.isArray(t.data) ? t.data : [])) {
+      if (it.imageUrl) icons[String(it.targetId)] = it.imageUrl;
+    }
+  }
+
+  return games.map((g) => ({
+    id: String(g.rootPlaceId || g.universeId || ''),
+    name: g.name,
+    iconUrl: icons[String(g.universeId)] || null,
+  }));
+});
+
 // Recolor the native window controls to match the current theme (Windows).
 ipcMain.handle('theme:set', (_evt, theme) => {
   if (!win || process.platform !== 'win32') return;

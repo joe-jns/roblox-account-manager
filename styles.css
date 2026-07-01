@@ -514,6 +514,7 @@ select { cursor: pointer; }
 
 /* Tag input */
 .tag-input {
+  position: relative;
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
@@ -557,6 +558,45 @@ select { cursor: pointer; }
   outline: none;
 }
 .tag-input input:disabled { color: var(--muted-2); }
+
+/* Game search autocomplete */
+.suggest {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+  max-height: 220px;
+  overflow-y: auto;
+  z-index: 30;
+  padding: 4px;
+}
+.suggest-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text);
+}
+.suggest-item.hi { background: var(--surface-3); }
+.suggest-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.game-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  object-fit: cover;
+  flex: 0 0 auto;
+  background: var(--surface-3);
+  border: 1px solid var(--border-strong);
+}
+.game-tag { padding-left: 4px; }
+.game-tag .game-icon { width: 16px; height: 16px; border-radius: 4px; }
 
 /* Toast */
 .toast {

@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('api', {
   export: (accounts) => ipcRenderer.invoke('accounts:export', accounts),
   import: () => ipcRenderer.invoke('accounts:import'),
   resolveGame: (id) => ipcRenderer.invoke('game:resolve', id),
+  searchGames: (query) => ipcRenderer.invoke('roblox:searchGames', query),
   enrich: (username) => ipcRenderer.invoke('roblox:enrich', username),
   enrichBatch: (usernames) => ipcRenderer.invoke('roblox:enrichBatch', usernames),
   openUrl: (url) => ipcRenderer.invoke('open:url', url),

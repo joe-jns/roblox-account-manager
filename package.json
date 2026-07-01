@@ -34,7 +34,8 @@
     "publish": {
       "provider": "github",
       "owner": "joe-jns",
-      "repo": "roblox-account-manager"
+      "repo": "roblox-account-manager",
+      "releaseType": "release"
     },
     "win": {
       "target": "nsis"

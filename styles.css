@@ -161,6 +161,7 @@ input, textarea, select, button { font-family: inherit; }
 }
 
 .side-item {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 9px;
@@ -178,7 +179,16 @@ input, textarea, select, button { font-family: inherit; }
 .side-item.active {
   background: var(--surface-3);
   color: var(--text);
-  box-shadow: inset 2px 0 0 var(--focus);
+}
+/* Straight, rectangular accent bar pinned to the sidebar's left edge. */
+.side-item.active::before {
+  content: "";
+  position: absolute;
+  left: -10px;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--focus);
 }
 .side-item.active .side-count { color: var(--focus); }
 

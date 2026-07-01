@@ -1,0 +1,30 @@
+{
+  "name": "roblox-account-manager",
+  "version": "1.0.0",
+  "description": "Gestionnaire local de comptes Roblox",
+  "main": "main.js",
+  "author": "joe-jns",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win"
+  },
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.joejns.robloxaccountmanager",
+    "productName": "Roblox Account Manager",
+    "files": [
+      "main.js",
+      "preload.js",
+      "index.html",
+      "styles.css",
+      "renderer.js"
+    ],
+    "win": {
+      "target": "portable"
+    }
+  }
+}

@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline';" />
+  <title>Roblox Account Manager</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark"></span>
+      <span class="brand-name">Account Manager</span>
+      <span class="count" id="count">0 comptes</span>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn" id="btn-import">Importer</button>
+      <button class="btn" id="btn-export">Exporter</button>
+      <button class="btn btn-primary" id="btn-new">+ Nouveau</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <aside class="sidebar">
+      <div class="search-wrap">
+        <input type="text" id="search" placeholder="Rechercher un pseudo, une étiquette…" autocomplete="off" />
+      </div>
+      <div class="filters" id="filters">
+        <button class="chip" data-filter="status" data-value="Actif">Actif</button>
+        <button class="chip" data-filter="status" data-value="Averti">Averti</button>
+        <button class="chip" data-filter="status" data-value="Banni">Banni</button>
+        <button class="chip" data-filter="voice" data-value="on">Voice</button>
+        <button class="chip" data-filter="verified" data-value="on">Âge vérifié</button>
+      </div>
+      <ul class="account-list" id="account-list"></ul>
+    </aside>
+
+    <section class="detail" id="detail">
+      <!-- rempli par renderer.js -->
+    </section>
+  </main>
+
+  <template id="tpl-detail">
+    <div class="detail-inner">
+      <div class="detail-head">
+        <input class="pseudo-field" type="text" data-field="pseudo" placeholder="Pseudo Roblox" spellcheck="false" autocomplete="off" />
+        <div class="detail-head-actions">
+          <button class="btn btn-ghost" data-act="copy-pseudo">Copier pseudo</button>
+          <button class="btn btn-danger" data-act="delete">Supprimer</button>
+        </div>
+      </div>
+
+      <div class="grid">
+        <label class="field">
+          <span class="label">Mot de passe</span>
+          <div class="pw-row">
+            <input class="mono" type="password" data-field="password" spellcheck="false" autocomplete="off" />
+            <button class="icon-btn" data-act="toggle-pw" title="Afficher / masquer">Voir</button>
+            <button class="icon-btn" data-act="copy-pw" title="Copier">Copier</button>
+          </div>
+        </label>
+
+        <label class="field">
+          <span class="label">Tranche d'âge</span>
+          <select data-field="ageRange">
+            <option value="Inconnu">Inconnu</option>
+            <option value="&lt;13">&lt;13</option>
+            <option value="13+">13+</option>
+            <option value="17+">17+</option>
+          </select>
+        </label>
+
+        <div class="field">
+          <span class="label">Statut du compte</span>
+          <div class="segmented" data-field="status">
+            <button data-value="Actif">Actif</button>
+            <button data-value="Averti">Averti</button>
+            <button data-value="Banni">Banni</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <span class="label">Options</span>
+          <div class="toggle-row">
+            <label class="switch">
+              <input type="checkbox" data-field="voiceChat" />
+              <span class="track"></span>
+              <span class="switch-label">Voice chat</span>
+            </label>
+            <label class="switch">
+              <input type="checkbox" data-field="ageVerified" />
+              <span class="track"></span>
+              <span class="switch-label">Âge vérifié</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="field field-wide">
+          <span class="label">Jeux bannis</span>
+          <div class="tag-input" data-field="bannedGames">
+            <div class="tags"></div>
+            <input type="text" placeholder="Nom du jeu + Entrée" spellcheck="false" autocomplete="off" />
+          </div>
+        </div>
+
+        <div class="field field-wide">
+          <span class="label">Étiquettes</span>
+          <div class="tag-input" data-field="tags">
+            <div class="tags"></div>
+            <input type="text" placeholder="main, alt, farm… + Entrée" spellcheck="false" autocomplete="off" />
+          </div>
+        </div>
+
+        <label class="field">
+          <span class="label">Date d'ajout</span>
+          <input type="date" data-field="dateAdded" />
+        </label>
+
+        <label class="field field-wide">
+          <span class="label">Notes</span>
+          <textarea data-field="notes" rows="4" placeholder="Notes libres…"></textarea>
+        </label>
+      </div>
+    </div>
+  </template>
+
+  <template id="tpl-empty">
+    <div class="empty">
+      <p class="empty-title">Aucun compte sélectionné</p>
+      <p class="empty-sub">Choisis un compte à gauche, ou crée-en un avec <b>+ Nouveau</b>.</p>
+    </div>
+  </template>
+
+  <div class="toast" id="toast" hidden></div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

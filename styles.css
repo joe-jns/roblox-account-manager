@@ -19,6 +19,9 @@
 
 * { box-sizing: border-box; }
 
+/* The [hidden] attribute must win over author display rules (e.g. .modal { display:flex }). */
+[hidden] { display: none !important; }
+
 html, body {
   margin: 0;
   height: 100%;
@@ -595,6 +598,7 @@ input[type="checkbox"] {
   top: 50%; left: 50%;
   transform: translate(-50%, -50%);
   width: 560px; max-width: 92vw;
+  max-height: 86vh;
   background: var(--surface);
   border: 1px solid var(--border-strong);
   border-radius: 10px;
@@ -604,6 +608,7 @@ input[type="checkbox"] {
   flex-direction: column;
   overflow: hidden;
 }
+.modal-body { overflow-y: auto; }
 .modal-head {
   padding: 16px 18px;
   font-weight: 600;

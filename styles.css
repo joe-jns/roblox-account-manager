@@ -871,6 +871,20 @@ input[type="color"] {
 .lock-title { font-size: 18px; font-weight: 600; }
 .lock-desc { font-size: 13px; color: var(--muted); margin-bottom: 4px; }
 
+/* Update dialog */
+.update-text { font-size: 13.5px; color: var(--text); line-height: 1.5; }
+.update-progress { margin-top: 14px; display: flex; align-items: center; gap: 10px; }
+.update-bar {
+  flex: 1 1 auto;
+  height: 8px;
+  background: var(--surface-3);
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.update-bar-fill { height: 100%; width: 0%; background: var(--focus); transition: width 0.15s ease; }
+.update-pct { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; min-width: 38px; text-align: right; }
+
 /* Scrollbars */
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 6px; border: 2px solid var(--surface); }

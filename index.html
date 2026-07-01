@@ -310,6 +310,13 @@
             </div>
             <span class="set-desc" id="set-version">—</span>
           </div>
+          <div class="set-row">
+            <div>
+              <div class="set-label">Updates</div>
+              <div class="set-desc">Check GitHub for a new version.</div>
+            </div>
+            <button class="btn" id="set-check-updates">Check now</button>
+          </div>
         </div>
       </div>
     </div>
@@ -331,6 +338,24 @@
       <span class="bulk-spacer"></span>
       <button class="btn btn-ghost" id="pw-cancel">Cancel</button>
       <button class="btn btn-primary" id="pw-ok">OK</button>
+    </div>
+  </div>
+
+  <!-- In-app update dialog -->
+  <div class="modal-backdrop" id="update-backdrop" hidden></div>
+  <div class="modal modal-sm" id="update-modal" hidden>
+    <div class="modal-head" id="update-title">Update available</div>
+    <div class="modal-body">
+      <div class="update-text" id="update-text">A new version is available.</div>
+      <div class="update-progress" id="update-progress" hidden>
+        <div class="update-bar"><div class="update-bar-fill" id="update-bar-fill"></div></div>
+        <div class="update-pct" id="update-pct">0%</div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <span class="bulk-spacer"></span>
+      <button class="btn btn-ghost" id="update-later">Later</button>
+      <button class="btn btn-primary" id="update-yes">Download</button>
     </div>
   </div>
 

@@ -83,11 +83,8 @@ app.whenReady().then(() => {
 
   createWindow();
 
-  // Auto-update from GitHub Releases (only in the installed/packaged build).
-  // Checks on launch; if an update is found it downloads and installs on quit.
-  if (app.isPackaged) {
-    autoUpdater.checkForUpdatesAndNotify().catch(() => {});
-  }
+  // Custom in-app auto-update flow (installed builds only).
+  if (app.isPackaged) setupAutoUpdate();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -111,6 +108,40 @@ app.on('before-quit', () => {
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
+});
+
+// ---- Auto-update (custom in-app UI) ----------------------------------------
+
+function sendUpd(channel, data) {
+  if (win && !win.isDestroyed()) win.webContents.send(channel, data);
+}
+
+let autoUpdateReady = false;
+function setupAutoUpdate() {
+  autoUpdater.autoDownload = false; // ask the user first
+  if (!autoUpdateReady) {
+    autoUpdateReady = true;
+    autoUpdater.on('update-available', (info) => sendUpd('update:available', { version: info.version }));
+    autoUpdater.on('update-not-available', () => sendUpd('update:none', {}));
+    autoUpdater.on('download-progress', (p) => sendUpd('update:progress', { percent: p.percent }));
+    autoUpdater.on('update-downloaded', (info) => sendUpd('update:downloaded', { version: info.version }));
+    autoUpdater.on('error', (err) => sendUpd('update:error', { message: String((err && err.message) || err) }));
+  }
+  autoUpdater.checkForUpdates().catch(() => {});
+}
+
+ipcMain.handle('update:check', () => {
+  autoUpdater.autoDownload = false;
+  setupAutoUpdate();
+  return true;
+});
+ipcMain.handle('update:download', () => {
+  autoUpdater.downloadUpdate().catch((e) => sendUpd('update:error', { message: String((e && e.message) || e) }));
+  return true;
+});
+ipcMain.handle('update:install', () => {
+  autoUpdater.quitAndInstall();
+  return true;
 });
 
 // ---- Persistence -----------------------------------------------------------

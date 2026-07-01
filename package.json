@@ -1,6 +1,6 @@
 {
   "name": "roblox-account-manager",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "Gestionnaire local de comptes Roblox",
   "main": "main.js",
   "author": "joe-jns",
@@ -18,8 +18,10 @@
     "electron-updater": "^6.8.9"
   },
   "devDependencies": {
+    "@resvg/resvg-js": "^2.6.2",
     "electron": "^31.0.0",
-    "electron-builder": "^24.13.3"
+    "electron-builder": "^24.13.3",
+    "png-to-ico": "^3.0.1"
   },
   "build": {
     "appId": "com.joejns.robloxaccountmanager",
@@ -39,14 +41,20 @@
       "releaseType": "release"
     },
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "icon": "build/icon.ico"
     },
     "nsis": {
-      "oneClick": true,
+      "oneClick": false,
       "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "runAfterFinish": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Roblox Account Manager"
+      "shortcutName": "Roblox Account Manager",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerHeaderIcon": "build/icon.ico"
     }
   }
 }

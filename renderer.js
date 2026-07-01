@@ -1130,6 +1130,69 @@ $('#pw-input').addEventListener('keydown', (e) => {
 $('#lock-unlock').addEventListener('click', tryUnlock);
 $('#lock-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') tryUnlock(); });
 
+// In-app update flow
+let updateState = 'idle';
+let updateManual = false;
+function showUpdateModal() { $('#update-backdrop').hidden = false; $('#update-modal').hidden = false; }
+function closeUpdateModal() { $('#update-backdrop').hidden = true; $('#update-modal').hidden = true; }
+
+window.api.onUpdateAvailable((d) => {
+  updateState = 'available';
+  $('#update-title').textContent = 'Update available';
+  $('#update-text').textContent = `Version ${d.version} is available. Download it now?`;
+  $('#update-progress').hidden = true;
+  $('#update-bar-fill').style.width = '0%';
+  $('#update-pct').textContent = '0%';
+  $('#update-yes').textContent = 'Download';
+  $('#update-yes').hidden = false;
+  $('#update-later').hidden = false;
+  showUpdateModal();
+});
+window.api.onUpdateNone(() => { if (updateManual) { updateManual = false; toast('You are on the latest version'); } });
+window.api.onUpdateProgress((d) => {
+  const p = Math.max(0, Math.min(100, Math.round(d.percent || 0)));
+  $('#update-bar-fill').style.width = p + '%';
+  $('#update-pct').textContent = p + '%';
+});
+window.api.onUpdateDownloaded((d) => {
+  updateState = 'downloaded';
+  $('#update-title').textContent = 'Update ready';
+  $('#update-text').textContent = `Version ${d.version} downloaded. Restart to install it.`;
+  $('#update-progress').hidden = true;
+  $('#update-yes').textContent = 'Restart now';
+  $('#update-yes').hidden = false;
+  $('#update-later').hidden = false;
+  showUpdateModal();
+});
+window.api.onUpdateError((d) => {
+  if (updateState === 'downloading' || updateState === 'available') {
+    $('#update-text').textContent = 'Update failed: ' + (d.message || 'unknown error');
+    $('#update-progress').hidden = true;
+    $('#update-yes').textContent = 'Retry';
+    $('#update-yes').hidden = false;
+    $('#update-later').hidden = false;
+    updateState = 'available';
+  } else if (updateManual) {
+    updateManual = false;
+    toast('Update check failed');
+  }
+});
+
+$('#update-yes').addEventListener('click', () => {
+  if (updateState === 'available') {
+    updateState = 'downloading';
+    $('#update-text').textContent = 'Downloading update…';
+    $('#update-progress').hidden = false;
+    $('#update-yes').hidden = true;
+    $('#update-later').hidden = true;
+    window.api.updateDownload();
+  } else if (updateState === 'downloaded') {
+    window.api.updateInstall();
+  }
+});
+$('#update-later').addEventListener('click', closeUpdateModal);
+$('#set-check-updates').addEventListener('click', () => { updateManual = true; window.api.updateCheck(); toast('Checking for updates…'); });
+
 // Auto-detect pushed from a login window once it's logged in.
 window.api.onDetected((data) => {
   const a = accounts.find((x) => x.id === data.accountId);

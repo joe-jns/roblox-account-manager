@@ -11,6 +11,8 @@ contextBridge.exposeInMainWorld('api', {
   enrichBatch: (usernames) => ipcRenderer.invoke('roblox:enrichBatch', usernames),
   openUrl: (url) => ipcRenderer.invoke('open:url', url),
   robloxLogin: (payload) => ipcRenderer.invoke('roblox:login', payload),
+  detect: (accountId) => ipcRenderer.invoke('roblox:detect', accountId),
+  onDetected: (cb) => ipcRenderer.on('roblox:detected', (_e, data) => cb(data)),
   setTheme: (theme) => ipcRenderer.invoke('theme:set', theme),
   version: () => ipcRenderer.invoke('app:version'),
   secureStatus: () => ipcRenderer.invoke('secure:status'),

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, shell, session } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, session, net } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const path = require('node:path');
 const fs = require('node:fs/promises');
@@ -462,6 +462,7 @@ const CHROME_UA =
 
 function buildFillScript(username, password) {
   return `(function(){
+    var U = ${JSON.stringify(username)}, P = ${JSON.stringify(password)};
     function setVal(el, val){
       var proto = Object.getPrototypeOf(el);
       var desc = Object.getOwnPropertyDescriptor(proto, 'value')
@@ -470,18 +471,80 @@ function buildFillScript(username, password) {
       el.dispatchEvent(new Event('input', { bubbles: true }));
       el.dispatchEvent(new Event('change', { bubbles: true }));
     }
-    var u = document.querySelector('#login-username, input[name="username"]');
-    var p = document.querySelector('#login-password, input[type="password"]');
-    if (u && p) {
-      setVal(u, ${JSON.stringify(username)});
-      setVal(p, ${JSON.stringify(password)});
-      var b = document.querySelector('#login-button, button[type="submit"]');
-      if (b) { setTimeout(function(){ b.click(); }, 200); }
-      return true;
-    }
-    return false;
+    var tries = 0, clicked = false;
+    var t = setInterval(function(){
+      tries++;
+      var u = document.querySelector('#login-username, input[name="username"]');
+      var p = document.querySelector('#login-password, input[type="password"]');
+      if (u && p) {
+        setVal(u, U); setVal(p, P);
+        var b = document.querySelector('#login-button, button[type="submit"]');
+        if (b && !b.disabled && !clicked) { clicked = true; clearInterval(t); setTimeout(function(){ b.click(); }, 300); }
+        else if (tries > 40) { clearInterval(t); }
+      } else if (tries > 40) { clearInterval(t); }
+    }, 150);
   })();`;
 }
+
+// Authenticated GET using an account's persisted login session.
+function authGet(partition, url) {
+  return new Promise((resolve) => {
+    let request;
+    try {
+      request = net.request({ method: 'GET', url, session: session.fromPartition(partition) });
+    } catch {
+      resolve(null);
+      return;
+    }
+    let body = '';
+    request.on('response', (res) => {
+      res.on('data', (c) => { body += c.toString(); });
+      res.on('end', () => {
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          try { resolve(JSON.parse(body)); } catch { resolve(null); }
+        } else {
+          resolve({ __status: res.statusCode });
+        }
+      });
+    });
+    request.on('error', () => resolve(null));
+    request.end();
+  });
+}
+
+function computeAge(y, m, d) {
+  const now = new Date();
+  let age = now.getFullYear() - y;
+  const mo = now.getMonth() + 1;
+  if (mo < m || (mo === m && now.getDate() < d)) age--;
+  return age;
+}
+
+// Read private settings (voice / age / age-verified) from a logged-in session.
+async function detectFor(key) {
+  const partition = 'persist:roblox-' + key;
+  const voice = await authGet(partition, 'https://voice.roblox.com/v1/settings');
+  if (!voice || voice.__status === 401 || voice.__status === 403) return { loggedIn: false };
+
+  const out = { loggedIn: true };
+  if (typeof voice.isVoiceEnabled === 'boolean') out.voiceChat = voice.isVoiceEnabled;
+
+  const bd = await authGet(partition, 'https://accountinformation.roblox.com/v1/birthdate');
+  if (bd && bd.birthYear && !bd.__status) {
+    const age = computeAge(bd.birthYear, bd.birthMonth || 1, bd.birthDay || 1);
+    out.ageRange = age >= 21 ? '21+' : (age >= 18 ? '18-20' : 'Unknown');
+  }
+
+  // Age (ID) verification — best effort; endpoint shape can vary.
+  const av = await authGet(partition, 'https://apis.roblox.com/age-verification-service/v1/age-verification/verified-age');
+  if (av && !av.__status) {
+    if (typeof av.isVerified === 'boolean') out.ageVerified = av.isVerified;
+    else if (av.verifiedAge != null) out.ageVerified = true;
+  }
+  return out;
+}
+
+ipcMain.handle('roblox:detect', async (_evt, accountId) => detectFor(String(accountId || 'default')));
 
 ipcMain.handle('roblox:login', async (_evt, payload) => {
   const { accountId, username, password } = payload || {};
@@ -519,6 +582,19 @@ ipcMain.handle('roblox:login', async (_evt, payload) => {
       await w.webContents.executeJavaScript(buildFillScript(username || '', password || ''), true);
     } catch {
       // page not ready / selectors changed — user can still log in manually
+    }
+  });
+
+  // Once the window leaves the login page (logged in), read the private
+  // settings from its session and push them to the main window.
+  let detected = false;
+  w.webContents.on('did-navigate', async (_e, url) => {
+    if (detected) return;
+    if (!/roblox\.com/i.test(url) || /\/login/i.test(url)) return;
+    detected = true;
+    const info = await detectFor(key);
+    if (info.loggedIn && win && !win.isDestroyed()) {
+      win.webContents.send('roblox:detected', Object.assign({ accountId: key }, info));
     }
   });
 

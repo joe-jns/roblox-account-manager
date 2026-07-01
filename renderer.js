@@ -351,6 +351,24 @@ function robloxLogin(a) {
   toast('Opening Roblox…');
 }
 
+// Apply private settings read from a logged-in session.
+function applyDetectedInfo(a, info) {
+  let changed = false;
+  if (typeof info.voiceChat === 'boolean') { a.voiceChat = info.voiceChat; changed = true; }
+  if (info.ageRange) { a.ageRange = info.ageRange; changed = true; }
+  if (typeof info.ageVerified === 'boolean') { a.ageVerified = info.ageVerified; changed = true; }
+  if (changed) { save(); render(); if (selectedId === a.id) renderDetail(); }
+  return changed;
+}
+
+async function detectAccount(a) {
+  toast('Reading session…');
+  const info = await window.api.detect(a.id);
+  if (!info || !info.loggedIn) { toast('Log in this account first'); return; }
+  const changed = applyDetectedInfo(a, info);
+  toast(changed ? 'Detected voice / age from session' : 'Nothing new detected');
+}
+
 function cellOpen(a) {
   const td = document.createElement('td');
   td.className = 'col-open';
@@ -466,6 +484,7 @@ function renderDetail() {
     window.api.openUrl(`https://www.roblox.com/users/${a.userId}/profile`);
   });
   node.querySelector('[data-act="login"]').addEventListener('click', () => robloxLogin(a));
+  node.querySelector('[data-act="detect"]').addEventListener('click', () => detectAccount(a));
 
   drawerBody.appendChild(node);
 }
@@ -1110,6 +1129,13 @@ $('#pw-input').addEventListener('keydown', (e) => {
 });
 $('#lock-unlock').addEventListener('click', tryUnlock);
 $('#lock-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') tryUnlock(); });
+
+// Auto-detect pushed from a login window once it's logged in.
+window.api.onDetected((data) => {
+  const a = accounts.find((x) => x.id === data.accountId);
+  if (!a) return;
+  if (applyDetectedInfo(a, data)) toast('Detected voice / age from session');
+});
 
 $('#btn-new').addEventListener('click', newAccount);
 $('#btn-export').addEventListener('click', doExport);

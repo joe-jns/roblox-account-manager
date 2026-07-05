@@ -73,7 +73,21 @@ function createWindow() {
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
 }
 
+// Only one instance at a time (avoids clashes when the installer relaunches).
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  app.quit();
+}
+
+app.on('second-instance', () => {
+  if (win) {
+    if (win.isMinimized()) win.restore();
+    win.focus();
+  }
+});
+
 app.whenReady().then(() => {
+  if (!gotTheLock) return;
   try {
     const c = JSON.parse(fsSync.readFileSync(CFG_FILE(), 'utf8'));
     autoBackup = !!c.autoBackup;
@@ -140,7 +154,8 @@ ipcMain.handle('update:download', () => {
   return true;
 });
 ipcMain.handle('update:install', () => {
-  autoUpdater.quitAndInstall();
+  // Silent install in the background, then relaunch (no installer wizard).
+  autoUpdater.quitAndInstall(true, true);
   return true;
 });
 

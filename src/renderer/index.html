@@ -366,22 +366,16 @@
   <div class="modal modal-sm" id="gen-modal" hidden>
     <div class="modal-head">Generate accounts</div>
     <div class="modal-body">
-      <div class="gen-row">
-        <label class="gen-field">
-          <span class="label">Type</span>
-          <select id="gen-type">
-            <option value="alt">alt</option>
-            <option value="+30 days old">+30 days old</option>
-            <option value="+1 year old">+1 year old</option>
-            <option value="5+ years old">5+ years old</option>
-            <option value="dump">dump</option>
-          </select>
-        </label>
-        <label class="gen-field gen-count-field">
-          <span class="label">Count</span>
-          <input type="number" id="gen-count" min="1" max="25" value="1" />
-        </label>
-      </div>
+      <label class="gen-field">
+        <span class="label">Account type</span>
+        <select id="gen-type">
+          <option value="alt">alt</option>
+          <option value="+30 days old">+30 days old</option>
+          <option value="+1 year old">+1 year old</option>
+          <option value="5+ years old">5+ years old</option>
+          <option value="dump">dump</option>
+        </select>
+      </label>
       <div class="modal-hint gen-status" id="gen-status"></div>
     </div>
     <div class="modal-foot">

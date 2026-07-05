@@ -1074,7 +1074,6 @@ function openGen() {
     return;
   }
   $('#gen-status').textContent = '';
-  $('#gen-count').value = '1';
   $('#gen-backdrop').hidden = false;
   $('#gen-modal').hidden = false;
 }
@@ -1089,43 +1088,36 @@ async function doGenerate() {
   const key = settings.bloxgenKey;
   if (!key) { toast('Set your API key first'); return; }
   const type = $('#gen-type').value;
-  let count = parseInt($('#gen-count').value, 10) || 1;
-  count = Math.max(1, Math.min(25, count));
 
   generating = true;
   $('#gen-go').disabled = true;
-  let added = 0;
-  for (let i = 0; i < count; i++) {
-    $('#gen-status').textContent = `Generating ${i + 1}/${count}…`;
-    let r = await window.api.bloxgenGenerate({ apiKey: key, type });
-    if (!r.ok && r.status === 429 && r.timeRemaining) {
-      const wait = Math.min(r.timeRemaining + 300, 60000);
-      $('#gen-status').textContent = `Cooldown — waiting ${Math.ceil(wait / 1000)}s… (${added}/${count} done)`;
-      await sleep(wait);
-      r = await window.api.bloxgenGenerate({ apiKey: key, type });
-    }
-    if (!r.ok) { $('#gen-status').textContent = `Stopped after ${added}: ${r.error}`; break; }
-    const d = r.data;
-    const acc = normalize({
-      pseudo: d.username,
-      password: d.password,
-      userId: d.id != null ? String(d.id) : null,
-      avatarUrl: d.avatarUrl || null,
-      tags: ['bloxgen', d.type].filter(Boolean),
-      notes: d.region ? 'Region: ' + d.region : '',
-    });
-    accounts.unshift(acc);
-    if (d.cookie) window.api.setCookie({ accountId: acc.id, cookie: d.cookie });
-    added++;
-    save();
-    render();
-    $('#gen-status').textContent = `Added ${added}/${count}…`;
-  }
-  if (added === count) {
-    $('#gen-status').textContent = `Done — added ${added} account(s). Login opens already signed in.`;
-  }
+  $('#gen-status').textContent = 'Generating…';
+  const r = await window.api.bloxgenGenerate({ apiKey: key, type });
   generating = false;
   $('#gen-go').disabled = false;
+
+  if (!r.ok) {
+    if (r.status === 429 && r.timeRemaining) {
+      $('#gen-status').textContent = `Cooldown — wait ${Math.ceil(r.timeRemaining / 1000)}s before generating again.`;
+    } else {
+      $('#gen-status').textContent = r.error || 'Generation failed';
+    }
+    return;
+  }
+  const d = r.data;
+  const acc = normalize({
+    pseudo: d.username,
+    password: d.password,
+    userId: d.id != null ? String(d.id) : null,
+    avatarUrl: d.avatarUrl || null,
+    tags: ['bloxgen', d.type].filter(Boolean),
+    notes: d.region ? 'Region: ' + d.region : '',
+  });
+  accounts.unshift(acc);
+  if (d.cookie) window.api.setCookie({ accountId: acc.id, cookie: d.cookie });
+  save();
+  render();
+  $('#gen-status').textContent = `Added "${d.username}". Login opens already signed in.`;
 }
 
 applyAppearance();

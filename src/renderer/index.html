@@ -53,11 +53,7 @@
         <div class="toolbar-bulk" id="toolbar-bulk" hidden>
           <span class="bulk-count" id="bulk-count">0 selected</span>
           <div class="bulk-sep"></div>
-          <select id="bulk-status">
-            <option value="">Set status…</option>
-            <option value="Active">Active</option>
-            <option value="Banned">Banned</option>
-          </select>
+          <div id="bulk-status-mount" class="dd-bulk"></div>
           <input type="text" id="bulk-tag" placeholder="Add tag…" autocomplete="off" />
           <button class="btn" id="bulk-tag-btn">Add tag</button>
           <button class="btn btn-danger" id="bulk-delete">Delete</button>
@@ -85,6 +81,11 @@
           <tbody id="table-body"></tbody>
         </table>
         <div class="table-empty" id="table-empty" hidden></div>
+      </div>
+      <div class="pagination" id="pagination" hidden>
+        <button class="btn" id="page-prev">Prev</button>
+        <span class="page-info" id="page-info">1 / 1</span>
+        <button class="btn" id="page-next">Next</button>
       </div>
     </main>
   </div>
@@ -132,11 +133,7 @@
 
         <label class="field">
           <span class="label">Age range</span>
-          <select data-field="ageRange">
-            <option value="Unknown">Unknown</option>
-            <option value="18-20">18-20</option>
-            <option value="21+">21+</option>
-          </select>
+          <div class="dd-mount" data-field="ageRange"></div>
         </label>
 
         <label class="field">
@@ -368,19 +365,7 @@
     <div class="modal-body">
       <div class="gen-field">
         <span class="label">Account type</span>
-        <div class="dropdown" id="gen-type-dd">
-          <button type="button" class="dropdown-btn" id="gen-type-btn">
-            <span id="gen-type-label">alt</span>
-            <span class="dropdown-chevron">▾</span>
-          </button>
-          <div class="dropdown-menu" id="gen-type-menu" hidden>
-            <button type="button" class="dropdown-item sel" data-value="alt">alt</button>
-            <button type="button" class="dropdown-item" data-value="+30 days old">+30 days old</button>
-            <button type="button" class="dropdown-item" data-value="+1 year old">+1 year old</button>
-            <button type="button" class="dropdown-item" data-value="5+ years old">5+ years old</button>
-            <button type="button" class="dropdown-item" data-value="dump">dump</button>
-          </div>
-        </div>
+        <div id="gen-type-mount"></div>
       </div>
       <div class="modal-hint gen-status" id="gen-status"></div>
     </div>

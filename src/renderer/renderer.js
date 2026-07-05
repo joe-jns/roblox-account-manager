@@ -8,6 +8,9 @@ let search = '';
 const filters = { view: 'all', voice: false, verified: false, tag: null };
 const sort = { key: null, dir: 'asc' };
 const selected = new Set();
+const PAGE_SIZE = 20;
+let page = 1;
+let dragId = null;
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const bodyEl = $('#table-body');
@@ -20,6 +23,71 @@ const sideStatus = $('#side-status');
 const sideAttrs = $('#side-attrs');
 const sideTags = $('#side-tags');
 const activeFilterEl = $('#active-filter');
+
+// ---- Reusable custom dropdown ----------------------------------------------
+
+function closeAllDropdowns() {
+  document.querySelectorAll('.dropdown.open').forEach((d) => {
+    d.classList.remove('open');
+    const m = d.querySelector('.dropdown-menu');
+    if (m) m.hidden = true;
+  });
+}
+document.addEventListener('click', closeAllDropdowns);
+
+function createDropdown({ options, value, placeholder, onSelect }) {
+  const dd = document.createElement('div');
+  dd.className = 'dropdown';
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'dropdown-btn';
+  const label = document.createElement('span');
+  label.className = 'dropdown-label';
+  const chev = document.createElement('span');
+  chev.className = 'dropdown-chevron';
+  chev.textContent = '▾';
+  btn.append(label, chev);
+  const menu = document.createElement('div');
+  menu.className = 'dropdown-menu';
+  menu.hidden = true;
+
+  let current = value;
+  function paintLabel() {
+    const o = options.find((x) => x.value === current);
+    label.textContent = o ? o.label : (placeholder || '');
+    label.classList.toggle('placeholder', !o);
+  }
+  function paintSel() {
+    menu.querySelectorAll('.dropdown-item').forEach((el) => el.classList.toggle('sel', el.dataset.value === current));
+  }
+  for (const o of options) {
+    const it = document.createElement('button');
+    it.type = 'button';
+    it.className = 'dropdown-item';
+    it.dataset.value = o.value;
+    it.textContent = o.label;
+    it.addEventListener('click', (e) => {
+      e.stopPropagation();
+      current = o.value;
+      paintLabel();
+      paintSel();
+      closeAllDropdowns();
+      if (onSelect) onSelect(o.value);
+    });
+    menu.appendChild(it);
+  }
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isOpen = dd.classList.contains('open');
+    closeAllDropdowns();
+    if (!isOpen) { dd.classList.add('open'); menu.hidden = false; }
+  });
+  dd.append(btn, menu);
+  paintLabel();
+  paintSel();
+  dd.setValue = (v) => { current = v; paintLabel(); paintSel(); };
+  return dd;
+}
 
 // ---- Model helpers ---------------------------------------------------------
 
@@ -180,11 +248,11 @@ function renderSidebar() {
   sideAttrs.innerHTML = '';
   sideAttrs.appendChild(sideItem({
     label: 'Voice enabled', count: voice, active: filters.voice,
-    onClick: () => { filters.voice = !filters.voice; render(); },
+    onClick: () => { filters.voice = !filters.voice; page = 1; render(); },
   }));
   sideAttrs.appendChild(sideItem({
     label: 'Age verified', count: verified, active: filters.verified,
-    onClick: () => { filters.verified = !filters.verified; render(); },
+    onClick: () => { filters.verified = !filters.verified; page = 1; render(); },
   }));
 
   sideTags.innerHTML = '';
@@ -198,7 +266,7 @@ function renderSidebar() {
     for (const [tag, count] of tags) {
       sideTags.appendChild(sideItem({
         label: tag, count, active: filters.tag === tag,
-        onClick: () => { filters.tag = filters.tag === tag ? null : tag; render(); },
+        onClick: () => { filters.tag = filters.tag === tag ? null : tag; page = 1; render(); },
       }));
     }
   }
@@ -206,6 +274,7 @@ function renderSidebar() {
 
 function setView(v) {
   filters.view = v;
+  page = 1;
   render();
 }
 
@@ -224,27 +293,57 @@ function renderActiveFilter() {
   clear.className = 'clear';
   clear.textContent = 'clear';
   clear.addEventListener('click', () => {
-    filters.voice = false; filters.verified = false; filters.tag = null; render();
+    filters.voice = false; filters.verified = false; filters.tag = null; page = 1; render();
   });
   activeFilterEl.appendChild(clear);
 }
 
 // ---- Table -----------------------------------------------------------------
 
+function pageCount() {
+  return Math.max(1, Math.ceil(visibleAccounts().length / PAGE_SIZE));
+}
+
+function pageAccounts() {
+  const all = visibleAccounts();
+  const pages = Math.max(1, Math.ceil(all.length / PAGE_SIZE));
+  if (page > pages) page = pages;
+  if (page < 1) page = 1;
+  const start = (page - 1) * PAGE_SIZE;
+  return all.slice(start, start + PAGE_SIZE);
+}
+
+function moveAccount(fromId, targetId, before) {
+  if (fromId === targetId) return;
+  const from = accounts.findIndex((x) => x.id === fromId);
+  if (from < 0) return;
+  const item = accounts.splice(from, 1)[0];
+  let ti = accounts.findIndex((x) => x.id === targetId);
+  if (ti < 0) { accounts.splice(from, 0, item); return; }
+  if (!before) ti += 1;
+  accounts.splice(ti, 0, item);
+  sort.key = null; // manual order now
+  save();
+  render();
+}
+
 function renderTable() {
-  const items = visibleAccounts();
+  const all = visibleAccounts();
+  const items = pageAccounts();
   countEl.textContent = `${accounts.length} account${accounts.length === 1 ? '' : 's'}`;
   bodyEl.innerHTML = '';
 
-  if (items.length === 0) {
+  if (all.length === 0) {
     emptyEl.hidden = false;
     emptyEl.textContent = accounts.length === 0 ? 'No accounts yet. Click + New.' : 'No accounts match this filter.';
+    renderPagination();
     updateSortIndicators();
     updateCheckAll();
     return;
   }
   emptyEl.hidden = true;
 
+  const draggable = !sort.key; // reordering only in manual order
   for (const a of items) {
     const tr = document.createElement('tr');
     tr.dataset.id = a.id;
@@ -260,10 +359,56 @@ function renderTable() {
     tr.appendChild(cell(a.dateAdded, 'cell-muted cell-nowrap'));
     tr.appendChild(cellOpen(a));
     tr.addEventListener('click', () => openDrawer(a.id));
+    if (draggable) attachDrag(tr, a.id);
     bodyEl.appendChild(tr);
   }
+  renderPagination();
   updateSortIndicators();
   updateCheckAll();
+}
+
+function attachDrag(tr, id) {
+  tr.draggable = true;
+  tr.classList.add('draggable');
+  tr.addEventListener('dragstart', (e) => {
+    dragId = id;
+    tr.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    try { e.dataTransfer.setData('text/plain', id); } catch {}
+  });
+  tr.addEventListener('dragend', () => {
+    dragId = null;
+    tr.classList.remove('dragging', 'drop-before', 'drop-after');
+    document.querySelectorAll('.drop-before, .drop-after').forEach((el) => el.classList.remove('drop-before', 'drop-after'));
+  });
+  tr.addEventListener('dragover', (e) => {
+    if (!dragId || dragId === id) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    const r = tr.getBoundingClientRect();
+    const before = (e.clientY - r.top) < r.height / 2;
+    tr.classList.toggle('drop-before', before);
+    tr.classList.toggle('drop-after', !before);
+  });
+  tr.addEventListener('dragleave', () => tr.classList.remove('drop-before', 'drop-after'));
+  tr.addEventListener('drop', (e) => {
+    if (!dragId || dragId === id) return;
+    e.preventDefault();
+    const r = tr.getBoundingClientRect();
+    const before = (e.clientY - r.top) < r.height / 2;
+    tr.classList.remove('drop-before', 'drop-after');
+    moveAccount(dragId, id, before);
+  });
+}
+
+function renderPagination() {
+  const pages = pageCount();
+  const bar = $('#pagination');
+  if (pages <= 1) { bar.hidden = true; return; }
+  bar.hidden = false;
+  $('#page-info').textContent = `${page} / ${pages}`;
+  $('#page-prev').disabled = page <= 1;
+  $('#page-next').disabled = page >= pages;
 }
 
 function cell(text, cls) {
@@ -410,7 +555,7 @@ function updateSortIndicators() {
 }
 
 function updateCheckAll() {
-  const items = visibleAccounts();
+  const items = pageAccounts();
   const all = items.length > 0 && items.every((a) => selected.has(a.id));
   const some = items.some((a) => selected.has(a.id));
   const box = $('#check-all');
@@ -455,7 +600,12 @@ function renderDetail() {
   bindText(node, 'pseudo', a);
   bindText(node, 'password', a);
   bindText(node, 'notes', a);
-  bindSelect(node, 'ageRange', a);
+  const ageMount = node.querySelector('[data-field="ageRange"]');
+  ageMount.appendChild(createDropdown({
+    options: AGES.map((v) => ({ value: v, label: v })),
+    value: a.ageRange,
+    onSelect: (v) => onEdit(a, 'ageRange', v),
+  }));
   bindDate(node, 'dateAdded', a);
   bindCheckbox(node, 'voiceChat', a);
   bindCheckbox(node, 'ageVerified', a);
@@ -1067,10 +1217,12 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 let generating = false;
 let genType = 'alt';
 
-function closeGenMenu() {
-  $('#gen-type-menu').hidden = true;
-  $('#gen-type-dd').classList.remove('open');
-}
+const genTypeDD = createDropdown({
+  options: ['alt', '+30 days old', '+1 year old', '5+ years old', 'dump'].map((v) => ({ value: v, label: v })),
+  value: 'alt',
+  onSelect: (v) => { genType = v; },
+});
+$('#gen-type-mount').appendChild(genTypeDD);
 
 function openGen() {
   if (!settings.bloxgenKey) {
@@ -1131,7 +1283,9 @@ window.api.setConfig({ autoBackup: settings.autoBackup });
 
 // ---- Wiring ----------------------------------------------------------------
 
-$('#search').addEventListener('input', (e) => { search = e.target.value; renderTable(); });
+$('#search').addEventListener('input', (e) => { search = e.target.value; page = 1; renderTable(); });
+$('#page-prev').addEventListener('click', () => { if (page > 1) { page--; renderTable(); } });
+$('#page-next').addEventListener('click', () => { if (page < pageCount()) { page++; renderTable(); } });
 
 $('#btn-settings').addEventListener('click', openSettings);
 $('#settings-close').addEventListener('click', closeSettings);
@@ -1275,22 +1429,6 @@ $('#btn-generate').addEventListener('click', openGen);
 $('#gen-cancel').addEventListener('click', closeGen);
 $('#gen-backdrop').addEventListener('click', closeGen);
 $('#gen-go').addEventListener('click', doGenerate);
-$('#gen-type-btn').addEventListener('click', (e) => {
-  e.stopPropagation();
-  const menu = $('#gen-type-menu');
-  const willOpen = menu.hidden;
-  menu.hidden = !willOpen;
-  $('#gen-type-dd').classList.toggle('open', willOpen);
-});
-$('#gen-type-menu').addEventListener('click', (e) => {
-  const it = e.target.closest('.dropdown-item');
-  if (!it) return;
-  genType = it.dataset.value;
-  $('#gen-type-label').textContent = genType;
-  $('#gen-type-menu').querySelectorAll('.dropdown-item').forEach((x) => x.classList.toggle('sel', x.dataset.value === genType));
-  closeGenMenu();
-});
-document.addEventListener('click', closeGenMenu);
 $('#set-bloxgen-key').addEventListener('input', (e) => { settings.bloxgenKey = e.target.value.trim(); saveSettings(); });
 $('#bloxgen-check').addEventListener('click', async () => {
   if (!settings.bloxgenKey) { toast('Enter your API key first'); return; }
@@ -1307,6 +1445,7 @@ document.querySelectorAll('.accounts-table th.sortable').forEach((th) => {
     const key = th.dataset.sort;
     if (sort.key === key) sort.dir = sort.dir === 'asc' ? 'desc' : 'asc';
     else { sort.key = key; sort.dir = 'asc'; }
+    page = 1;
     renderTable();
   });
 });
@@ -1314,7 +1453,7 @@ document.querySelectorAll('.accounts-table th.sortable').forEach((th) => {
 // Select all (visible)
 const checkAll = $('#check-all');
 checkAll.addEventListener('change', (e) => {
-  const items = visibleAccounts();
+  const items = pageAccounts();
   if (e.target.checked) items.forEach((a) => selected.add(a.id));
   else items.forEach((a) => selected.delete(a.id));
   renderTable();
@@ -1328,15 +1467,20 @@ document.querySelector('th.col-check').addEventListener('click', (e) => {
 });
 
 // Bulk actions
-$('#bulk-status').addEventListener('change', (e) => {
-  const v = e.target.value;
-  if (!v) return;
-  accounts.forEach((a) => { if (selected.has(a.id)) a.status = v; });
-  e.target.value = '';
-  save();
-  render();
-  toast(`Status set for ${selected.size} account(s)`);
+const bulkStatusDD = createDropdown({
+  options: STATUSES.map((s) => ({ value: s, label: s })),
+  value: null,
+  placeholder: 'Set status…',
+  onSelect: (v) => {
+    const n = selected.size;
+    accounts.forEach((a) => { if (selected.has(a.id)) a.status = v; });
+    save();
+    render();
+    toast(`Status set for ${n} account(s)`);
+    bulkStatusDD.setValue(null);
+  },
 });
+$('#bulk-status-mount').appendChild(bulkStatusDD);
 function bulkAddTag() {
   const t = $('#bulk-tag').value.trim();
   if (!t) return;
@@ -1378,7 +1522,7 @@ document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
   if (!$('#lock').hidden) return; // can't escape the lock screen
   if (!$('#pw-modal').hidden) { closePw(null); return; }
-  if (!$('#gen-type-menu').hidden) { closeGenMenu(); return; }
+  if (document.querySelector('.dropdown.open')) { closeAllDropdowns(); return; }
   if (!$('#gen-modal').hidden) { closeGen(); return; }
   if (!$('#settings-modal').hidden) closeSettings();
   else if (!$('#bulk-modal').hidden) closeBulk();

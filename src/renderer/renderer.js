@@ -1065,6 +1065,12 @@ async function tryUnlock() {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 let generating = false;
+let genType = 'alt';
+
+function closeGenMenu() {
+  $('#gen-type-menu').hidden = true;
+  $('#gen-type-dd').classList.remove('open');
+}
 
 function openGen() {
   if (!settings.bloxgenKey) {
@@ -1087,7 +1093,7 @@ async function doGenerate() {
   if (generating) return;
   const key = settings.bloxgenKey;
   if (!key) { toast('Set your API key first'); return; }
-  const type = $('#gen-type').value;
+  const type = genType;
 
   generating = true;
   $('#gen-go').disabled = true;
@@ -1269,6 +1275,22 @@ $('#btn-generate').addEventListener('click', openGen);
 $('#gen-cancel').addEventListener('click', closeGen);
 $('#gen-backdrop').addEventListener('click', closeGen);
 $('#gen-go').addEventListener('click', doGenerate);
+$('#gen-type-btn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  const menu = $('#gen-type-menu');
+  const willOpen = menu.hidden;
+  menu.hidden = !willOpen;
+  $('#gen-type-dd').classList.toggle('open', willOpen);
+});
+$('#gen-type-menu').addEventListener('click', (e) => {
+  const it = e.target.closest('.dropdown-item');
+  if (!it) return;
+  genType = it.dataset.value;
+  $('#gen-type-label').textContent = genType;
+  $('#gen-type-menu').querySelectorAll('.dropdown-item').forEach((x) => x.classList.toggle('sel', x.dataset.value === genType));
+  closeGenMenu();
+});
+document.addEventListener('click', closeGenMenu);
 $('#set-bloxgen-key').addEventListener('input', (e) => { settings.bloxgenKey = e.target.value.trim(); saveSettings(); });
 $('#bloxgen-check').addEventListener('click', async () => {
   if (!settings.bloxgenKey) { toast('Enter your API key first'); return; }
@@ -1356,6 +1378,7 @@ document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
   if (!$('#lock').hidden) return; // can't escape the lock screen
   if (!$('#pw-modal').hidden) { closePw(null); return; }
+  if (!$('#gen-type-menu').hidden) { closeGenMenu(); return; }
   if (!$('#gen-modal').hidden) { closeGen(); return; }
   if (!$('#settings-modal').hidden) closeSettings();
   else if (!$('#bulk-modal').hidden) closeBulk();

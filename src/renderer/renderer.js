@@ -935,6 +935,7 @@ if (settings.accent === undefined) settings.accent = null;
 if (settings.autoFetch === undefined) settings.autoFetch = true;
 if (settings.confirmDelete === undefined) settings.confirmDelete = true;
 if (settings.autoBackup === undefined) settings.autoBackup = false;
+if (settings.bloxgenKey === undefined) settings.bloxgenKey = '';
 
 function defaultAccent() { return settings.theme === 'light' ? '#E12028' : '#4d7cfe'; }
 
@@ -983,6 +984,7 @@ function openSettings() {
   $('#set-autofetch').checked = settings.autoFetch;
   $('#set-confirm-delete').checked = settings.confirmDelete;
   $('#set-autobackup').checked = settings.autoBackup;
+  $('#set-bloxgen-key').value = settings.bloxgenKey || '';
   window.api.version().then((v) => { $('#set-version').textContent = 'v' + v; }).catch(() => {});
   window.api.secureStatus().then((s) => updateMpStatus(s.encEnabled)).catch(() => {});
   $('#settings-backdrop').hidden = false;
@@ -1057,6 +1059,73 @@ async function tryUnlock() {
     $('#lock-error').textContent = r.error || 'Wrong password';
     $('#lock-input').select();
   }
+}
+
+// ---- Bloxgen generate ------------------------------------------------------
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+let generating = false;
+
+function openGen() {
+  if (!settings.bloxgenKey) {
+    toast('Set your Bloxgen API key in Settings › Bloxgen');
+    openSettings();
+    switchSettingsPane('bloxgen');
+    return;
+  }
+  $('#gen-status').textContent = '';
+  $('#gen-count').value = '1';
+  $('#gen-backdrop').hidden = false;
+  $('#gen-modal').hidden = false;
+}
+function closeGen() {
+  if (generating) return;
+  $('#gen-backdrop').hidden = true;
+  $('#gen-modal').hidden = true;
+}
+
+async function doGenerate() {
+  if (generating) return;
+  const key = settings.bloxgenKey;
+  if (!key) { toast('Set your API key first'); return; }
+  const type = $('#gen-type').value;
+  let count = parseInt($('#gen-count').value, 10) || 1;
+  count = Math.max(1, Math.min(25, count));
+
+  generating = true;
+  $('#gen-go').disabled = true;
+  let added = 0;
+  for (let i = 0; i < count; i++) {
+    $('#gen-status').textContent = `Generating ${i + 1}/${count}…`;
+    let r = await window.api.bloxgenGenerate({ apiKey: key, type });
+    if (!r.ok && r.status === 429 && r.timeRemaining) {
+      const wait = Math.min(r.timeRemaining + 300, 60000);
+      $('#gen-status').textContent = `Cooldown — waiting ${Math.ceil(wait / 1000)}s… (${added}/${count} done)`;
+      await sleep(wait);
+      r = await window.api.bloxgenGenerate({ apiKey: key, type });
+    }
+    if (!r.ok) { $('#gen-status').textContent = `Stopped after ${added}: ${r.error}`; break; }
+    const d = r.data;
+    const acc = normalize({
+      pseudo: d.username,
+      password: d.password,
+      userId: d.id != null ? String(d.id) : null,
+      avatarUrl: d.avatarUrl || null,
+      tags: ['bloxgen', d.type].filter(Boolean),
+      notes: d.region ? 'Region: ' + d.region : '',
+    });
+    accounts.unshift(acc);
+    if (d.cookie) window.api.setCookie({ accountId: acc.id, cookie: d.cookie });
+    added++;
+    save();
+    render();
+    $('#gen-status').textContent = `Added ${added}/${count}…`;
+  }
+  if (added === count) {
+    $('#gen-status').textContent = `Done — added ${added} account(s). Login opens already signed in.`;
+  }
+  generating = false;
+  $('#gen-go').disabled = false;
 }
 
 applyAppearance();
@@ -1204,6 +1273,17 @@ $('#btn-new').addEventListener('click', newAccount);
 $('#btn-export').addEventListener('click', doExport);
 $('#btn-import').addEventListener('click', doImport);
 $('#btn-bulk').addEventListener('click', openBulk);
+$('#btn-generate').addEventListener('click', openGen);
+$('#gen-cancel').addEventListener('click', closeGen);
+$('#gen-backdrop').addEventListener('click', closeGen);
+$('#gen-go').addEventListener('click', doGenerate);
+$('#set-bloxgen-key').addEventListener('input', (e) => { settings.bloxgenKey = e.target.value.trim(); saveSettings(); });
+$('#bloxgen-check').addEventListener('click', async () => {
+  if (!settings.bloxgenKey) { toast('Enter your API key first'); return; }
+  $('#bloxgen-balance').textContent = 'Checking…';
+  const r = await window.api.bloxgenBalance(settings.bloxgenKey);
+  $('#bloxgen-balance').textContent = r.ok ? '$' + (r.balance != null ? r.balance : 0) : (r.error || 'Failed');
+});
 $('#drawer-close').addEventListener('click', closeDrawer);
 backdropEl.addEventListener('click', closeDrawer);
 
@@ -1284,6 +1364,7 @@ document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
   if (!$('#lock').hidden) return; // can't escape the lock screen
   if (!$('#pw-modal').hidden) { closePw(null); return; }
+  if (!$('#gen-modal').hidden) { closeGen(); return; }
   if (!$('#settings-modal').hidden) closeSettings();
   else if (!$('#bulk-modal').hidden) closeBulk();
   else if (drawerEl.classList.contains('open')) closeDrawer();
@@ -1295,6 +1376,7 @@ function anyOverlayOpen() {
   return drawerEl.classList.contains('open')
     || !$('#settings-modal').hidden
     || !$('#bulk-modal').hidden
+    || !$('#gen-modal').hidden
     || !$('#pw-modal').hidden
     || !$('#update-modal').hidden
     || !$('#lock').hidden;
@@ -1302,7 +1384,7 @@ function anyOverlayOpen() {
 (function watchOverlays() {
   const sync = () => window.api.overlayDim(anyOverlayOpen());
   const mo = new MutationObserver(sync);
-  ['#settings-modal', '#bulk-modal', '#pw-modal', '#update-modal', '#lock'].forEach((sel) => {
+  ['#settings-modal', '#bulk-modal', '#gen-modal', '#pw-modal', '#update-modal', '#lock'].forEach((sel) => {
     const el = $(sel);
     if (el) mo.observe(el, { attributes: true, attributeFilter: ['hidden'] });
   });

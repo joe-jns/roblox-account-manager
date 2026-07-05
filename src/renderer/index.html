@@ -14,6 +14,7 @@
       <span class="count" id="count">0 accounts</span>
     </div>
     <div class="topbar-actions">
+      <button class="btn" id="btn-generate">Generate</button>
       <button class="btn" id="btn-bulk">Bulk add</button>
       <button class="btn" id="btn-import">Import</button>
       <button class="btn" id="btn-export">Export</button>
@@ -213,6 +214,7 @@
       <nav class="settings-nav" id="settings-nav">
         <button class="settings-navitem active" data-pane="appearance">Appearance</button>
         <button class="settings-navitem" data-pane="roblox">Roblox</button>
+        <button class="settings-navitem" data-pane="bloxgen">Bloxgen</button>
         <button class="settings-navitem" data-pane="data">Data &amp; safety</button>
         <button class="settings-navitem" data-pane="about">About</button>
       </nav>
@@ -263,6 +265,24 @@
               <div class="set-desc">Clear every saved Roblox login session.</div>
             </div>
             <button class="btn btn-danger" id="set-logout-all">Log out</button>
+          </div>
+        </div>
+
+        <div class="settings-pane" data-pane="bloxgen" hidden>
+          <div class="pane-title">Bloxgen</div>
+          <div class="set-row">
+            <div>
+              <div class="set-label">API key</div>
+              <div class="set-desc">From your Bloxgen dashboard. Stored locally.</div>
+            </div>
+            <input type="password" id="set-bloxgen-key" class="mono bloxgen-key" placeholder="BLOX-…" autocomplete="off" />
+          </div>
+          <div class="set-row">
+            <div>
+              <div class="set-label">Balance</div>
+              <div class="set-desc" id="bloxgen-balance">—</div>
+            </div>
+            <button class="btn" id="bloxgen-check">Check</button>
           </div>
         </div>
 
@@ -338,6 +358,36 @@
       <span class="bulk-spacer"></span>
       <button class="btn btn-ghost" id="pw-cancel">Cancel</button>
       <button class="btn btn-primary" id="pw-ok">OK</button>
+    </div>
+  </div>
+
+  <!-- Generate accounts (Bloxgen) -->
+  <div class="modal-backdrop" id="gen-backdrop" hidden></div>
+  <div class="modal modal-sm" id="gen-modal" hidden>
+    <div class="modal-head">Generate accounts</div>
+    <div class="modal-body">
+      <div class="gen-row">
+        <label class="gen-field">
+          <span class="label">Type</span>
+          <select id="gen-type">
+            <option value="alt">alt</option>
+            <option value="+30 days old">+30 days old</option>
+            <option value="+1 year old">+1 year old</option>
+            <option value="5+ years old">5+ years old</option>
+            <option value="dump">dump</option>
+          </select>
+        </label>
+        <label class="gen-field gen-count-field">
+          <span class="label">Count</span>
+          <input type="number" id="gen-count" min="1" max="25" value="1" />
+        </label>
+      </div>
+      <div class="modal-hint gen-status" id="gen-status"></div>
+    </div>
+    <div class="modal-foot">
+      <span class="bulk-spacer"></span>
+      <button class="btn btn-ghost" id="gen-cancel">Close</button>
+      <button class="btn btn-primary" id="gen-go">Generate</button>
     </div>
   </div>
 

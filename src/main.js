@@ -456,6 +456,63 @@ ipcMain.handle('overlay:dim', (_evt, on) => { applyOverlay(!!on); });
 
 ipcMain.handle('app:version', () => app.getVersion());
 
+// ---- Bloxgen account generation --------------------------------------------
+
+const BLOXGEN = 'https://core.bloxgen.net';
+
+ipcMain.handle('bloxgen:balance', async (_evt, apiKey) => {
+  const r = await fetchJSON(`${BLOXGEN}/api/balance?apiKey=${encodeURIComponent(apiKey || '')}`);
+  if (r && r.success && r.data) return { ok: true, balance: r.data.balance };
+  return { ok: false, error: (r && r.message) || 'Could not fetch balance' };
+});
+
+ipcMain.handle('bloxgen:generate', async (_evt, payload) => {
+  const { apiKey, type } = payload || {};
+  let status = 0;
+  let json = null;
+  try {
+    const res = await fetch(`${BLOXGEN}/api/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ apiKey, type }),
+    });
+    status = res.status;
+    try { json = await res.json(); } catch {}
+  } catch (e) {
+    return { ok: false, status: 0, error: String((e && e.message) || e) };
+  }
+  if (json && json.success && json.data) return { ok: true, data: json.data };
+  return {
+    ok: false,
+    status,
+    error: (json && json.message) || `HTTP ${status}`,
+    timeRemaining: json && json.timeRemaining,
+  };
+});
+
+// Inject a .ROBLOSECURITY cookie into an account's session so Login opens
+// already authenticated (no password / captcha).
+ipcMain.handle('roblox:setCookie', async (_evt, payload) => {
+  const { accountId, cookie } = payload || {};
+  if (!cookie) return false;
+  try {
+    const ses = session.fromPartition('persist:roblox-' + String(accountId || 'default'));
+    await ses.cookies.set({
+      url: 'https://www.roblox.com',
+      name: '.ROBLOSECURITY',
+      value: cookie,
+      domain: '.roblox.com',
+      path: '/',
+      secure: true,
+      httpOnly: true,
+      expirationDate: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 365,
+    });
+    return true;
+  } catch {
+    return false;
+  }
+});
+
 // Open the folder that holds accounts.json.
 ipcMain.handle('data:openFolder', () => {
   const file = DATA_FILE();

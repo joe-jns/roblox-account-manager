@@ -5,7 +5,7 @@
 let accounts = [];
 let selectedId = null;
 let search = '';
-const filters = { view: 'all', voice: false, verified: false, tag: null };
+const filters = { view: 'all', voice: false, verified: false, favorite: false, tag: null };
 const sort = { key: null, dir: 'asc' };
 const selected = new Set();
 const PAGE_SIZE = 20;
@@ -92,11 +92,11 @@ function createDropdown({ options, value, placeholder, onSelect }) {
 // ---- Model helpers ---------------------------------------------------------
 
 const STATUSES = ['Active', 'Banned'];
-const AGES = ['Unknown', '18-20', '21+'];
+const AGES = ['Unknown', '16-17', '18-20', '21+'];
 const STATUS_MIGRATE = { Actif: 'Active', Averti: 'Active', Warned: 'Active', Banni: 'Banned' };
 const AGE_MIGRATE = { Inconnu: 'Unknown' };
 const STATUS_RANK = { Active: 0, Banned: 1 };
-const AGE_RANK = { Unknown: 0, '18-20': 1, '21+': 2 };
+const AGE_RANK = { Unknown: 0, '16-17': 1, '18-20': 2, '21+': 3 };
 
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
@@ -128,6 +128,7 @@ function normalize(a) {
     tags: Array.isArray(a.tags) ? a.tags : [],
     dateAdded: a.dateAdded || todayISO(),
     notes: a.notes || '',
+    favorite: !!a.favorite,
     userId: a.userId ? String(a.userId) : null,
     displayName: a.displayName || '',
     created: a.created || null,
@@ -171,6 +172,7 @@ function visibleAccounts() {
     if (filters.view !== 'all' && a.status !== filters.view) return false;
     if (filters.voice && !a.voiceChat) return false;
     if (filters.verified && !a.ageVerified) return false;
+    if (filters.favorite && !a.favorite) return false;
     if (filters.tag && !a.tags.includes(filters.tag)) return false;
     if (q) {
       const hay = (a.pseudo + ' ' + a.tags.join(' ')).toLowerCase();
@@ -188,6 +190,8 @@ function visibleAccounts() {
       return 0;
     });
   }
+  // Favorites always float to the top (stable within each group).
+  list.sort((a, b) => (b.favorite ? 1 : 0) - (a.favorite ? 1 : 0));
   return list;
 }
 
@@ -225,11 +229,13 @@ function renderSidebar() {
   const byStatus = { Active: 0, Banned: 0 };
   let voice = 0;
   let verified = 0;
+  let favs = 0;
   const tagCounts = new Map();
   for (const a of accounts) {
     byStatus[a.status] = (byStatus[a.status] || 0) + 1;
     if (a.voiceChat) voice++;
     if (a.ageVerified) verified++;
+    if (a.favorite) favs++;
     for (const t of a.tags) tagCounts.set(t, (tagCounts.get(t) || 0) + 1);
   }
 
@@ -246,6 +252,10 @@ function renderSidebar() {
   }
 
   sideAttrs.innerHTML = '';
+  sideAttrs.appendChild(sideItem({
+    label: '★ Favorites', count: favs, active: filters.favorite,
+    onClick: () => { filters.favorite = !filters.favorite; page = 1; render(); },
+  }));
   sideAttrs.appendChild(sideItem({
     label: 'Voice enabled', count: voice, active: filters.voice,
     onClick: () => { filters.voice = !filters.voice; page = 1; render(); },
@@ -280,6 +290,7 @@ function setView(v) {
 
 function renderActiveFilter() {
   const parts = [];
+  if (filters.favorite) parts.push('Favorites');
   if (filters.voice) parts.push('Voice');
   if (filters.verified) parts.push('Verified');
   if (filters.tag) parts.push('#' + filters.tag);
@@ -293,7 +304,7 @@ function renderActiveFilter() {
   clear.className = 'clear';
   clear.textContent = 'clear';
   clear.addEventListener('click', () => {
-    filters.voice = false; filters.verified = false; filters.tag = null; page = 1; render();
+    filters.favorite = false; filters.voice = false; filters.verified = false; filters.tag = null; page = 1; render();
   });
   activeFilterEl.appendChild(clear);
 }
@@ -457,6 +468,17 @@ function cellUser(a) {
   td.className = 'cell-pseudo';
   const wrap = document.createElement('span');
   wrap.className = 'cell-user';
+  const star = document.createElement('button');
+  star.className = 'star-btn' + (a.favorite ? ' on' : '');
+  star.textContent = a.favorite ? '★' : '☆';
+  star.title = a.favorite ? 'Unfavorite' : 'Favorite';
+  star.addEventListener('click', (e) => {
+    e.stopPropagation();
+    a.favorite = !a.favorite;
+    save();
+    render();
+  });
+  wrap.appendChild(star);
   if (a.avatarUrl) {
     const img = document.createElement('img');
     img.className = 'avatar avatar-sm';
@@ -625,6 +647,13 @@ function renderDetail() {
     e.target.textContent = shown ? 'Show' : 'Hide';
   });
   node.querySelector('[data-act="copy-pw"]').addEventListener('click', () => copy(a.password, 'Password copied'));
+  const favBtn = node.querySelector('[data-act="favorite"]');
+  const paintFav = () => {
+    favBtn.textContent = a.favorite ? '★ Favorited' : '☆ Favorite';
+    favBtn.classList.toggle('fav-on', a.favorite);
+  };
+  paintFav();
+  favBtn.addEventListener('click', () => { a.favorite = !a.favorite; save(); render(); paintFav(); });
   node.querySelector('[data-act="copy-pseudo"]').addEventListener('click', () => copy(a.pseudo, 'Username copied'));
   node.querySelector('[data-act="copy-combo"]').addEventListener('click', () => copy(`${a.pseudo}:${a.password}`, 'user:pass copied'));
   node.querySelector('[data-act="delete"]').addEventListener('click', () => deleteAccount(a.id));

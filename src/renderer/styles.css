@@ -679,6 +679,19 @@ input[type="checkbox"]:indeterminate::after {
 /* ---- Avatar in table ----------------------------------------------------- */
 
 .cell-user { display: inline-flex; align-items: center; gap: 8px; }
+.star-btn {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: var(--muted-2);
+  font-size: 15px;
+  line-height: 1;
+  padding: 0 2px;
+  flex: 0 0 auto;
+}
+.star-btn:hover { color: var(--amber); }
+.star-btn.on { color: var(--amber); }
+.btn.fav-on { color: var(--amber); border-color: var(--amber); }
 .avatar {
   border-radius: 50%;
   background: var(--surface-3);

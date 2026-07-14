@@ -73,8 +73,9 @@ function createWindow() {
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
 }
 
-// Only one instance at a time (avoids clashes when the installer relaunches).
-const gotTheLock = app.requestSingleInstanceLock();
+// Single instance only for the installed build (avoids installer-relaunch
+// clashes). In dev we skip it so it can run alongside the installed app.
+const gotTheLock = app.isPackaged ? app.requestSingleInstanceLock() : true;
 if (!gotTheLock) {
   app.quit();
 }

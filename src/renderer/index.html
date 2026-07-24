@@ -263,20 +263,9 @@
 
         <div class="settings-pane" data-pane="bloxgen" hidden>
           <div class="pane-title">Bloxgen</div>
-          <div class="set-row">
-            <div>
-              <div class="set-label">API key</div>
-              <div class="set-desc">From your Bloxgen dashboard. Stored locally.</div>
-            </div>
-            <input type="password" id="set-bloxgen-key" class="mono bloxgen-key" placeholder="BLOX-…" autocomplete="off" />
-          </div>
-          <div class="set-row">
-            <div>
-              <div class="set-label">Balance</div>
-              <div class="set-desc" id="bloxgen-balance">—</div>
-            </div>
-            <button class="btn" id="bloxgen-check">Check</button>
-          </div>
+          <div class="set-desc bloxgen-intro">Your Bloxgen API keys (stored locally). Add several to use multiple accounts.</div>
+          <div id="bloxgen-keys"></div>
+          <button class="btn" id="bloxgen-add-key">+ Add key</button>
         </div>
 
         <div class="settings-pane" data-pane="data" hidden>
@@ -366,6 +355,10 @@
   <div class="modal modal-sm" id="gen-modal" hidden>
     <div class="modal-head">Generate accounts</div>
     <div class="modal-body">
+      <div class="gen-field" id="gen-key-field">
+        <span class="label">Bloxgen key</span>
+        <div id="gen-key-mount"></div>
+      </div>
       <div class="gen-field">
         <span class="label">Account type</span>
         <div id="gen-type-mount"></div>

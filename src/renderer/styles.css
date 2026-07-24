@@ -873,9 +873,16 @@ input[type="color"] {
 .update-bar-fill { height: 100%; width: 0%; background: var(--focus); transition: width 0.15s ease; }
 .update-pct { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; min-width: 38px; text-align: right; }
 
-/* Generate dialog + Bloxgen key */
-.bloxgen-key { width: 220px; }
+/* Generate dialog + Bloxgen keys */
+.bloxgen-intro { margin-bottom: 10px; }
+#bloxgen-keys { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+.key-row { display: flex; align-items: center; gap: 8px; }
+.key-row .key-label { width: 120px; flex: 0 0 auto; }
+.key-row .key-value { flex: 1 1 auto; min-width: 0; }
+.key-row .key-balance { font-size: 12px; color: var(--muted); min-width: 56px; text-align: right; white-space: nowrap; }
+.key-row .btn { flex: 0 0 auto; height: 32px; }
 .gen-field { display: flex; flex-direction: column; gap: 6px; }
+.gen-field + .gen-field { margin-top: 14px; }
 .gen-auto-row { margin-top: 6px; border-bottom: none; }
 .gen-info { margin-top: 10px; font-size: 12.5px; color: var(--muted); }
 .gen-info.low { color: var(--red); font-weight: 600; }

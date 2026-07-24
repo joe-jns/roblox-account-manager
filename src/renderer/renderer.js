@@ -4,6 +4,7 @@
 const CHANGELOG = {
   '1.2.8': [
     'Auto-generate: keeps generating one account each cooldown (adapts to your Bloxgen grade). Stop anytime.',
+    'Multiple Bloxgen API keys: add several accounts and let auto-generate rotate across all of them.',
     'Generate window shows your Bloxgen balance and daily limit, with a low-balance warning.',
     'Import / Export are now .txt (username:password). Import is a dropdown: from a file, or paste (Bulk add).',
     'Favorites: star an account to pin it on top, and filter to favorites in the sidebar.',
@@ -1109,7 +1110,12 @@ if (settings.accent === undefined) settings.accent = null;
 if (settings.autoFetch === undefined) settings.autoFetch = true;
 if (settings.confirmDelete === undefined) settings.confirmDelete = true;
 if (settings.autoBackup === undefined) settings.autoBackup = false;
-if (settings.bloxgenKey === undefined) settings.bloxgenKey = '';
+if (!Array.isArray(settings.bloxgenKeys)) {
+  settings.bloxgenKeys = settings.bloxgenKey ? [{ id: crypto.randomUUID(), label: '', key: settings.bloxgenKey }] : [];
+}
+delete settings.bloxgenKey;
+
+function bloxgenKeyList() { return settings.bloxgenKeys.filter((k) => k.key && k.key.trim()); }
 
 function defaultAccent() { return '#E12028'; }
 
@@ -1144,6 +1150,63 @@ function updateMpStatus(on) {
   $('#mp-remove').hidden = !on;
 }
 
+function renderBloxgenKeys() {
+  const box = $('#bloxgen-keys');
+  if (!box) return;
+  box.innerHTML = '';
+  if (settings.bloxgenKeys.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'set-desc';
+    empty.textContent = 'No keys yet — click "+ Add key".';
+    box.appendChild(empty);
+    return;
+  }
+  settings.bloxgenKeys.forEach((k, i) => {
+    const row = document.createElement('div');
+    row.className = 'key-row';
+
+    const label = document.createElement('input');
+    label.type = 'text';
+    label.className = 'key-label';
+    label.placeholder = 'Label';
+    label.value = k.label || '';
+    label.addEventListener('input', () => { k.label = label.value; saveSettings(); });
+
+    const val = document.createElement('input');
+    val.type = 'password';
+    val.className = 'key-value mono';
+    val.placeholder = 'BLOX-…';
+    val.value = k.key || '';
+    val.addEventListener('input', () => { k.key = val.value.trim(); saveSettings(); });
+
+    const bal = document.createElement('span');
+    bal.className = 'key-balance';
+
+    const check = document.createElement('button');
+    check.className = 'btn';
+    check.textContent = 'Check';
+    check.addEventListener('click', async () => {
+      if (!k.key) { bal.textContent = ''; return; }
+      bal.textContent = '…';
+      const r = await window.api.bloxgenBalance(k.key);
+      bal.textContent = r.ok ? '$' + Number(r.balance).toFixed(2) : 'err';
+    });
+
+    const rm = document.createElement('button');
+    rm.className = 'btn btn-danger';
+    rm.textContent = '✕';
+    rm.title = 'Remove';
+    rm.addEventListener('click', () => {
+      settings.bloxgenKeys = settings.bloxgenKeys.filter((x) => x.id !== k.id);
+      saveSettings();
+      renderBloxgenKeys();
+    });
+
+    row.append(label, val, bal, check, rm);
+    box.appendChild(row);
+  });
+}
+
 function switchSettingsPane(name) {
   document.querySelectorAll('.settings-navitem').forEach((b) => b.classList.toggle('active', b.dataset.pane === name));
   document.querySelectorAll('.settings-pane').forEach((p) => { p.hidden = p.dataset.pane !== name; });
@@ -1155,7 +1218,7 @@ function openSettings() {
   $('#set-autofetch').checked = settings.autoFetch;
   $('#set-confirm-delete').checked = settings.confirmDelete;
   $('#set-autobackup').checked = settings.autoBackup;
-  $('#set-bloxgen-key').value = settings.bloxgenKey || '';
+  renderBloxgenKeys();
   window.api.version().then((v) => { $('#set-version').textContent = 'v' + v; }).catch(() => {});
   window.api.secureStatus().then((s) => updateMpStatus(s.encEnabled)).catch(() => {});
   $('#settings-backdrop').hidden = false;
@@ -1248,6 +1311,33 @@ $('#gen-type-mount').appendChild(genTypeDD);
 let autoRunning = false;
 let genBalance = null; // last known Bloxgen balance
 let genDaily = null;   // last known daily-limit data for the selected type
+let genKeyId = '__all__'; // selected Bloxgen key id, or '__all__' to rotate
+
+function selectedKeys() {
+  const keys = bloxgenKeyList();
+  if (genKeyId === '__all__') return keys;
+  const k = keys.find((x) => x.id === genKeyId);
+  return k ? [k] : keys.slice(0, 1);
+}
+function firstSelectedKey() { const s = selectedKeys(); return s.length ? s[0].key : null; }
+
+function buildGenKeyDropdown() {
+  const mount = $('#gen-key-mount');
+  const field = $('#gen-key-field');
+  mount.innerHTML = '';
+  const keys = bloxgenKeyList();
+  if (keys.length <= 1) {
+    genKeyId = keys.length ? keys[0].id : '__all__';
+    field.hidden = true;
+    return;
+  }
+  field.hidden = false;
+  const opts = [{ value: '__all__', label: 'All keys (rotate)' }].concat(
+    keys.map((k, i) => ({ value: k.id, label: k.label || `Key ${i + 1}` }))
+  );
+  if (!opts.some((o) => o.value === genKeyId)) genKeyId = '__all__';
+  mount.appendChild(createDropdown({ options: opts, value: genKeyId, onSelect: (v) => { genKeyId = v; refreshGenInfo(); } }));
+}
 
 function genStatus(msg) { $('#gen-status').textContent = msg; }
 
@@ -1269,17 +1359,26 @@ function renderGenInfoLine() {
 }
 
 async function refreshGenInfo() {
-  const key = settings.bloxgenKey;
   const info = $('#gen-info');
-  if (!key) { info.textContent = ''; return; }
+  const keys = bloxgenKeyList();
+  if (keys.length === 0) { info.textContent = ''; return; }
   info.textContent = 'Loading…';
+  info.classList.remove('low');
+  if (genKeyId === '__all__' && keys.length > 1) {
+    const bals = await Promise.all(keys.map((k) => window.api.bloxgenBalance(k.key).catch(() => ({ ok: false }))));
+    const total = bals.reduce((s, b) => s + (b.ok ? Number(b.balance) : 0), 0);
+    genBalance = null;
+    genDaily = null;
+    info.textContent = `${keys.length} keys  ·  total $${total.toFixed(4)}`;
+    return;
+  }
+  const key = firstSelectedKey();
   const [bal, dl] = await Promise.all([
     window.api.bloxgenBalance(key).catch(() => ({ ok: false })),
     window.api.bloxgenDailyLimit({ apiKey: key, type: genType }).catch(() => ({ ok: false })),
   ]);
-  if (bal.ok) genBalance = bal.balance;
-  if (dl.ok && dl.data) genDaily = dl.data;
-  info.classList.remove('low');
+  genBalance = bal.ok ? bal.balance : null;
+  genDaily = (dl.ok && dl.data) ? dl.data : null;
   renderGenInfoLine();
 }
 
@@ -1292,12 +1391,13 @@ function setGenRunningUI(running) {
 }
 
 function openGen() {
-  if (!settings.bloxgenKey) {
-    toast('Set your Bloxgen API key in Settings › Bloxgen');
+  if (bloxgenKeyList().length === 0) {
+    toast('Add a Bloxgen API key in Settings › Bloxgen');
     openSettings();
     switchSettingsPane('bloxgen');
     return;
   }
+  buildGenKeyDropdown();
   if (!autoRunning) genStatus('');
   setGenRunningUI(autoRunning);
   $('#gen-backdrop').hidden = false;
@@ -1342,9 +1442,18 @@ function waitCooldown(ms, count) {
   });
 }
 
+function interruptibleSleep(ms) {
+  return new Promise((resolve) => {
+    let remaining = ms;
+    const iv = setInterval(() => {
+      remaining -= 500;
+      if (!autoRunning || remaining <= 0) { clearInterval(iv); resolve(); }
+    }, 500);
+  });
+}
+
 async function doGenerate() {
-  const key = settings.bloxgenKey;
-  if (!key) { toast('Set your API key first'); return; }
+  if (bloxgenKeyList().length === 0) { toast('Add a Bloxgen key first'); return; }
 
   // Clicking while the auto loop runs -> stop it.
   if (autoRunning) { autoRunning = false; return; }
@@ -1354,6 +1463,7 @@ async function doGenerate() {
   // Single generation.
   if (!$('#gen-auto').checked) {
     if (generating) return;
+    const key = firstSelectedKey();
     generating = true;
     $('#gen-go').disabled = true;
     genStatus('Generating…');
@@ -1370,9 +1480,17 @@ async function doGenerate() {
     return;
   }
 
-  // Auto loop — generate, wait the cooldown the API reports (grade-dependent), repeat.
+  // Auto: rotate across all keys, or loop a single key.
   autoRunning = true;
   setGenRunningUI(true);
+  if (genKeyId === '__all__' && bloxgenKeyList().length > 1) await autoRotateAll(type);
+  else await autoSingle(firstSelectedKey(), type);
+  autoRunning = false;
+  setGenRunningUI(false);
+}
+
+// Loop on a single key, waiting the cooldown the API reports.
+async function autoSingle(key, type) {
   let count = 0;
   let lowWarned = false;
   while (autoRunning) {
@@ -1383,7 +1501,6 @@ async function doGenerate() {
       addGeneratedAccount(r.data);
       count++;
       toast(`Generated ${r.data.username}`);
-      // Update balance / daily counters locally (avoid hammering the API).
       const cost = typeof r.data.cost === 'number' ? r.data.cost : 0;
       if (genBalance != null) genBalance -= cost;
       if (genDaily) {
@@ -1396,20 +1513,60 @@ async function doGenerate() {
         $('#gen-info').classList.add('low');
         toast('⚠ Low Bloxgen balance — running out soon');
       }
-      continue; // the next call reports the cooldown to wait
+      continue;
     }
     if (r.status === 429 && r.timeRemaining && !isDailyLimit(r)) {
       await waitCooldown(r.timeRemaining + 800, count);
       continue;
     }
     genStatus(`Stopped after ${count}: ${r.error}`);
-    break;
+    return;
   }
-  autoRunning = false;
-  setGenRunningUI(false);
-  if ($('#gen-status').textContent.indexOf('Stopped') === -1) {
-    genStatus(`Stopped. Generated ${count} total.`);
+  genStatus(`Stopped. Generated ${count} total.`);
+}
+
+// Rotate across all keys: use whichever is off cooldown, so several Bloxgen
+// accounts generate in parallel. Dead keys (out of balance / daily limit) drop out.
+async function autoRotateAll(type) {
+  const keys = bloxgenKeyList();
+  const state = keys.map((k, i) => ({ key: k.key, label: k.label || `Key ${i + 1}`, readyAt: 0, dead: false }));
+  let count = 0;
+  let idx = 0;
+  while (autoRunning) {
+    const now = Date.now();
+    let picked = -1;
+    for (let i = 0; i < state.length; i++) {
+      const j = (idx + i) % state.length;
+      if (!state[j].dead && state[j].readyAt <= now) { picked = j; break; }
+    }
+    if (picked === -1) {
+      const alive = state.filter((s) => !s.dead);
+      if (alive.length === 0) { genStatus(`Stopped. All keys exhausted. Generated ${count} total.`); return; }
+      const wait = Math.max(500, Math.min(...alive.map((s) => s.readyAt)) - Date.now());
+      genStatus(`Generated ${count} — all keys cooling, next in ${Math.ceil(wait / 1000)}s…`);
+      await interruptibleSleep(wait);
+      continue;
+    }
+    idx = (picked + 1) % state.length;
+    const s = state[picked];
+    genStatus(`Generated ${count} — key "${s.label}"…`);
+    const r = await window.api.bloxgenGenerate({ apiKey: s.key, type });
+    if (!autoRunning) break;
+    if (r.ok) {
+      addGeneratedAccount(r.data);
+      count++;
+      toast(`Generated ${r.data.username} · ${s.label}`);
+      s.readyAt = Date.now() + 1000; // small gap; real cooldown learned on next 429
+    } else if (r.status === 429 && r.timeRemaining && !isDailyLimit(r)) {
+      s.readyAt = Date.now() + r.timeRemaining + 500;
+    } else if (isDailyLimit(r) || /balance/i.test(r.error || '')) {
+      s.dead = true;
+      toast(`Key "${s.label}": ${r.error}`);
+    } else {
+      s.dead = true;
+    }
   }
+  genStatus(`Stopped. Generated ${count} total.`);
 }
 
 applyAppearance();
@@ -1562,12 +1719,10 @@ $('#btn-generate').addEventListener('click', openGen);
 $('#gen-cancel').addEventListener('click', closeGen);
 $('#gen-backdrop').addEventListener('click', closeGen);
 $('#gen-go').addEventListener('click', doGenerate);
-$('#set-bloxgen-key').addEventListener('input', (e) => { settings.bloxgenKey = e.target.value.trim(); saveSettings(); });
-$('#bloxgen-check').addEventListener('click', async () => {
-  if (!settings.bloxgenKey) { toast('Enter your API key first'); return; }
-  $('#bloxgen-balance').textContent = 'Checking…';
-  const r = await window.api.bloxgenBalance(settings.bloxgenKey);
-  $('#bloxgen-balance').textContent = r.ok ? '$' + (r.balance != null ? r.balance : 0) : (r.error || 'Failed');
+$('#bloxgen-add-key').addEventListener('click', () => {
+  settings.bloxgenKeys.push({ id: crypto.randomUUID(), label: '', key: '' });
+  saveSettings();
+  renderBloxgenKeys();
 });
 $('#drawer-close').addEventListener('click', closeDrawer);
 backdropEl.addEventListener('click', closeDrawer);

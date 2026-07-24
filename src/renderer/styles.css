@@ -960,6 +960,10 @@ input[type="color"] {
 }
 .dropdown-item:hover { background: var(--surface-2); }
 .dropdown-item.sel { background: var(--surface-3); font-weight: 600; }
+.dropdown-item { white-space: nowrap; }
+
+/* Import split-button menu: size to its content, not the narrow button */
+#import-menu { right: auto; min-width: 160px; }
 
 /* Rounded modal head/foot so the generate dropdown can overflow the box cleanly */
 .modal-head { border-radius: 10px 10px 0 0; }

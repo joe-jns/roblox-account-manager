@@ -1229,13 +1229,47 @@ let genType = 'alt';
 const genTypeDD = createDropdown({
   options: ['alt', '+30 days old', '+1 year old', '5+ years old', 'dump'].map((v) => ({ value: v, label: v })),
   value: 'alt',
-  onSelect: (v) => { genType = v; },
+  onSelect: (v) => { genType = v; refreshGenInfo(); },
 });
 $('#gen-type-mount').appendChild(genTypeDD);
 
 let autoRunning = false;
+let genBalance = null; // last known Bloxgen balance
+let genDaily = null;   // last known daily-limit data for the selected type
 
 function genStatus(msg) { $('#gen-status').textContent = msg; }
+
+function fmtResetTime(iso) {
+  try { return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); } catch { return ''; }
+}
+
+function renderGenInfoLine() {
+  const info = $('#gen-info');
+  const parts = [];
+  if (genBalance != null) parts.push(`Balance: $${Number(genBalance).toFixed(4)}`);
+  if (genDaily) {
+    const d = genDaily;
+    if (d.dailyLimit === -1 || d.remainingGenerations === -1) parts.push(`Today: ${d.generationsToday ?? 0} (unlimited)`);
+    else parts.push(`Today: ${d.generationsToday ?? 0}/${d.dailyLimit ?? '?'}`);
+    if (d.resetTime) parts.push(`resets ${fmtResetTime(d.resetTime)}`);
+  }
+  info.textContent = parts.length ? parts.join('  ·  ') : 'Could not load info';
+}
+
+async function refreshGenInfo() {
+  const key = settings.bloxgenKey;
+  const info = $('#gen-info');
+  if (!key) { info.textContent = ''; return; }
+  info.textContent = 'Loading…';
+  const [bal, dl] = await Promise.all([
+    window.api.bloxgenBalance(key).catch(() => ({ ok: false })),
+    window.api.bloxgenDailyLimit({ apiKey: key, type: genType }).catch(() => ({ ok: false })),
+  ]);
+  if (bal.ok) genBalance = bal.balance;
+  if (dl.ok && dl.data) genDaily = dl.data;
+  info.classList.remove('low');
+  renderGenInfoLine();
+}
 
 function setGenRunningUI(running) {
   const go = $('#gen-go');
@@ -1256,6 +1290,7 @@ function openGen() {
   setGenRunningUI(autoRunning);
   $('#gen-backdrop').hidden = false;
   $('#gen-modal').hidden = false;
+  refreshGenInfo();
 }
 function closeGen() {
   // The auto loop keeps running in the background even if the modal is closed.
@@ -1319,6 +1354,7 @@ async function doGenerate() {
     }
     addGeneratedAccount(r.data);
     genStatus(`Added "${r.data.username}".`);
+    refreshGenInfo();
     return;
   }
 
@@ -1326,6 +1362,7 @@ async function doGenerate() {
   autoRunning = true;
   setGenRunningUI(true);
   let count = 0;
+  let lowWarned = false;
   while (autoRunning) {
     genStatus(count ? `Generated ${count} — generating next…` : 'Generating…');
     const r = await window.api.bloxgenGenerate({ apiKey: key, type });
@@ -1334,6 +1371,19 @@ async function doGenerate() {
       addGeneratedAccount(r.data);
       count++;
       toast(`Generated ${r.data.username}`);
+      // Update balance / daily counters locally (avoid hammering the API).
+      const cost = typeof r.data.cost === 'number' ? r.data.cost : 0;
+      if (genBalance != null) genBalance -= cost;
+      if (genDaily) {
+        if (genDaily.generationsToday != null) genDaily.generationsToday++;
+        if (typeof genDaily.remainingGenerations === 'number' && genDaily.remainingGenerations > 0) genDaily.remainingGenerations--;
+      }
+      renderGenInfoLine();
+      if (!lowWarned && genBalance != null && cost > 0 && genBalance < cost * 4) {
+        lowWarned = true;
+        $('#gen-info').classList.add('low');
+        toast('⚠ Low Bloxgen balance — running out soon');
+      }
       continue; // the next call reports the cooldown to wait
     }
     if (r.status === 429 && r.timeRemaining && !isDailyLimit(r)) {

@@ -12,6 +12,7 @@ contextBridge.exposeInMainWorld('api', {
   openUrl: (url) => ipcRenderer.invoke('open:url', url),
   robloxLogin: (payload) => ipcRenderer.invoke('roblox:login', payload),
   bloxgenBalance: (apiKey) => ipcRenderer.invoke('bloxgen:balance', apiKey),
+  bloxgenDailyLimit: (payload) => ipcRenderer.invoke('bloxgen:dailyLimit', payload),
   bloxgenGenerate: (payload) => ipcRenderer.invoke('bloxgen:generate', payload),
   setCookie: (payload) => ipcRenderer.invoke('roblox:setCookie', payload),
   detect: (accountId) => ipcRenderer.invoke('roblox:detect', accountId),

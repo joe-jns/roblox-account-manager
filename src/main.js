@@ -480,6 +480,15 @@ ipcMain.handle('bloxgen:balance', async (_evt, apiKey) => {
   return { ok: false, error: (r && r.message) || 'Could not fetch balance' };
 });
 
+ipcMain.handle('bloxgen:dailyLimit', async (_evt, payload) => {
+  const { apiKey, type } = payload || {};
+  let url = `${BLOXGEN}/api/daily-limit?apiKey=${encodeURIComponent(apiKey || '')}`;
+  if (type) url += `&type=${encodeURIComponent(type)}`;
+  const r = await fetchJSON(url);
+  if (r && r.success && r.data) return { ok: true, data: r.data };
+  return { ok: false, error: (r && r.message) || 'Could not fetch daily limit' };
+});
+
 ipcMain.handle('bloxgen:generate', async (_evt, payload) => {
   const { apiKey, type } = payload || {};
   let status = 0;

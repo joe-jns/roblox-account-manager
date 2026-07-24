@@ -909,7 +909,7 @@ input[type="color"] {
 /* Generate dialog + Bloxgen key */
 .bloxgen-key { width: 220px; }
 .gen-field { display: flex; flex-direction: column; gap: 6px; }
-.gen-auto-row { margin-top: 14px; }
+.gen-auto-row { margin-top: 14px; display: flex; justify-content: flex-start; }
 .gen-status { margin-top: 14px; min-height: 18px; line-height: 1.5; }
 
 /* Custom dropdown (styled open list, unlike a native select) */

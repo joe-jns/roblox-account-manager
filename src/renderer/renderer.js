@@ -964,32 +964,15 @@ async function doExport() {
 }
 
 async function doImport() {
-  const res = await window.api.import();
-  if (!res.ok) { if (res.error) toast(res.error); return; }
-  const incoming = res.accounts.map(normalize);
-  if (incoming.length === 0) { toast('Empty file'); return; }
-
-  let mode = 0;
-  if (accounts.length > 0) {
-    mode = await window.api.confirm(
-      `Import ${incoming.length} account(s). Merge with your current accounts or replace them all?`,
-      ['Merge', 'Replace', 'Cancel']
-    );
-    if (mode === 2) return;
-  }
-  if (mode === 1) {
-    accounts = incoming;
-  } else {
-    const known = new Set(accounts.map((a) => a.id));
-    for (const a of incoming) {
-      if (known.has(a.id)) a.id = crypto.randomUUID();
-      accounts.push(a);
-    }
-  }
-  closeDrawer();
+  const res = await window.api.importTxt();
+  if (!res.ok) return;
+  const parsed = parseBulk(res.text);
+  if (parsed.length === 0) { toast('No accounts found in the file'); return; }
+  const created = parsed.map((p) => normalize(p));
+  accounts.unshift(...created);
   save();
   render();
-  toast(`${incoming.length} account(s) imported`);
+  toast(`${created.length} account(s) imported`);
   autoEnrich();
 }
 
@@ -1253,6 +1236,18 @@ const genTypeDD = createDropdown({
 });
 $('#gen-type-mount').appendChild(genTypeDD);
 
+let autoRunning = false;
+
+function genStatus(msg) { $('#gen-status').textContent = msg; }
+
+function setGenRunningUI(running) {
+  const go = $('#gen-go');
+  go.textContent = running ? 'Stop' : 'Generate';
+  go.classList.toggle('btn-danger', running);
+  go.classList.toggle('btn-primary', !running);
+  $('#gen-auto').disabled = running;
+}
+
 function openGen() {
   if (!settings.bloxgenKey) {
     toast('Set your Bloxgen API key in Settings › Bloxgen');
@@ -1260,38 +1255,18 @@ function openGen() {
     switchSettingsPane('bloxgen');
     return;
   }
-  $('#gen-status').textContent = '';
+  if (!autoRunning) genStatus('');
+  setGenRunningUI(autoRunning);
   $('#gen-backdrop').hidden = false;
   $('#gen-modal').hidden = false;
 }
 function closeGen() {
-  if (generating) return;
+  // The auto loop keeps running in the background even if the modal is closed.
   $('#gen-backdrop').hidden = true;
   $('#gen-modal').hidden = true;
 }
 
-async function doGenerate() {
-  if (generating) return;
-  const key = settings.bloxgenKey;
-  if (!key) { toast('Set your API key first'); return; }
-  const type = genType;
-
-  generating = true;
-  $('#gen-go').disabled = true;
-  $('#gen-status').textContent = 'Generating…';
-  const r = await window.api.bloxgenGenerate({ apiKey: key, type });
-  generating = false;
-  $('#gen-go').disabled = false;
-
-  if (!r.ok) {
-    if (r.status === 429 && r.timeRemaining) {
-      $('#gen-status').textContent = `Cooldown — wait ${Math.ceil(r.timeRemaining / 1000)}s before generating again.`;
-    } else {
-      $('#gen-status').textContent = r.error || 'Generation failed';
-    }
-    return;
-  }
-  const d = r.data;
+function addGeneratedAccount(d) {
   const acc = normalize({
     pseudo: d.username,
     password: d.password,
@@ -1304,7 +1279,78 @@ async function doGenerate() {
   if (d.cookie) window.api.setCookie({ accountId: acc.id, cookie: d.cookie });
   save();
   render();
-  $('#gen-status').textContent = `Added "${d.username}". Login opens already signed in.`;
+  return acc;
+}
+
+function isDailyLimit(r) { return r.dailyLimit != null || /daily/i.test(r.error || ''); }
+
+// Wait the cooldown reported by the API; interruptible by Stop.
+function waitCooldown(ms, count) {
+  return new Promise((resolve) => {
+    let remaining = ms;
+    const tick = () => genStatus(`Generated ${count} — next in ${Math.max(0, Math.ceil(remaining / 1000))}s…`);
+    tick();
+    const iv = setInterval(() => {
+      remaining -= 1000;
+      if (!autoRunning || remaining <= 0) { clearInterval(iv); resolve(); return; }
+      tick();
+    }, 1000);
+  });
+}
+
+async function doGenerate() {
+  const key = settings.bloxgenKey;
+  if (!key) { toast('Set your API key first'); return; }
+
+  // Clicking while the auto loop runs -> stop it.
+  if (autoRunning) { autoRunning = false; return; }
+
+  const type = genType;
+
+  // Single generation.
+  if (!$('#gen-auto').checked) {
+    if (generating) return;
+    generating = true;
+    $('#gen-go').disabled = true;
+    genStatus('Generating…');
+    const r = await window.api.bloxgenGenerate({ apiKey: key, type });
+    generating = false;
+    $('#gen-go').disabled = false;
+    if (!r.ok) {
+      genStatus(r.status === 429 && r.timeRemaining ? `Cooldown — wait ${Math.ceil(r.timeRemaining / 1000)}s.` : (r.error || 'Generation failed'));
+      return;
+    }
+    addGeneratedAccount(r.data);
+    genStatus(`Added "${r.data.username}".`);
+    return;
+  }
+
+  // Auto loop — generate, wait the cooldown the API reports (grade-dependent), repeat.
+  autoRunning = true;
+  setGenRunningUI(true);
+  let count = 0;
+  while (autoRunning) {
+    genStatus(count ? `Generated ${count} — generating next…` : 'Generating…');
+    const r = await window.api.bloxgenGenerate({ apiKey: key, type });
+    if (!autoRunning) break;
+    if (r.ok) {
+      addGeneratedAccount(r.data);
+      count++;
+      toast(`Generated ${r.data.username}`);
+      continue; // the next call reports the cooldown to wait
+    }
+    if (r.status === 429 && r.timeRemaining && !isDailyLimit(r)) {
+      await waitCooldown(r.timeRemaining + 800, count);
+      continue;
+    }
+    genStatus(`Stopped after ${count}: ${r.error}`);
+    break;
+  }
+  autoRunning = false;
+  setGenRunningUI(false);
+  if ($('#gen-status').textContent.indexOf('Stopped') === -1) {
+    genStatus(`Stopped. Generated ${count} total.`);
+  }
 }
 
 applyAppearance();
@@ -1452,8 +1498,15 @@ window.api.onDetected((data) => {
 
 $('#btn-new').addEventListener('click', newAccount);
 $('#btn-export').addEventListener('click', doExport);
-$('#btn-import').addEventListener('click', doImport);
-$('#btn-bulk').addEventListener('click', openBulk);
+$('#import-btn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  const dd = $('#import-dd');
+  const willOpen = !dd.classList.contains('open');
+  closeAllDropdowns();
+  if (willOpen) { dd.classList.add('open'); $('#import-menu').hidden = false; }
+});
+$('#import-file').addEventListener('click', () => { closeAllDropdowns(); doImport(); });
+$('#import-bulk').addEventListener('click', () => { closeAllDropdowns(); openBulk(); });
 $('#btn-generate').addEventListener('click', openGen);
 $('#gen-cancel').addEventListener('click', closeGen);
 $('#gen-backdrop').addEventListener('click', closeGen);

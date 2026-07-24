@@ -239,33 +239,31 @@ ipcMain.handle('secure:remove', async (_evt, { accounts }) => {
 
 // ---- Export / Import -------------------------------------------------------
 
+// Export as a plain .txt, one "username:password" per line.
 ipcMain.handle('accounts:export', async (_evt, accounts) => {
   const { canceled, filePath } = await dialog.showSaveDialog(win, {
     title: 'Export accounts',
-    defaultPath: 'roblox-accounts-backup.json',
-    filters: [{ name: 'JSON', extensions: ['json'] }],
+    defaultPath: 'accounts.txt',
+    filters: [{ name: 'Text', extensions: ['txt'] }],
   });
   if (canceled || !filePath) return { ok: false };
-  await fs.writeFile(filePath, JSON.stringify(accounts, null, 2), 'utf8');
+  const text = (Array.isArray(accounts) ? accounts : [])
+    .map((a) => `${a.pseudo || ''}:${a.password || ''}`)
+    .join('\r\n');
+  await fs.writeFile(filePath, text, 'utf8');
   return { ok: true, filePath };
 });
 
-ipcMain.handle('accounts:import', async () => {
+// Import a .txt of "username:password" lines -> returns the raw text.
+ipcMain.handle('accounts:importTxt', async () => {
   const { canceled, filePaths } = await dialog.showOpenDialog(win, {
-    title: 'Import accounts',
+    title: 'Import accounts (.txt)',
     properties: ['openFile'],
-    filters: [{ name: 'JSON', extensions: ['json'] }],
+    filters: [{ name: 'Text', extensions: ['txt'] }],
   });
   if (canceled || filePaths.length === 0) return { ok: false };
   const raw = await fs.readFile(filePaths[0], 'utf8');
-  let data;
-  try {
-    data = JSON.parse(raw);
-  } catch {
-    return { ok: false, error: 'Invalid JSON file.' };
-  }
-  if (!Array.isArray(data)) return { ok: false, error: 'Unexpected format (an array was expected).' };
-  return { ok: true, accounts: data };
+  return { ok: true, text: raw };
 });
 
 // ---- Roblox game name resolution ------------------------------------------
@@ -503,6 +501,8 @@ ipcMain.handle('bloxgen:generate', async (_evt, payload) => {
     status,
     error: (json && json.message) || `HTTP ${status}`,
     timeRemaining: json && json.timeRemaining,
+    dailyLimit: json && json.dailyLimit,
+    remainingGenerations: json && json.remainingGenerations,
   };
 });
 

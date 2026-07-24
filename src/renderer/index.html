@@ -15,8 +15,13 @@
     </div>
     <div class="topbar-actions">
       <button class="btn" id="btn-generate">Generate</button>
-      <button class="btn" id="btn-bulk">Bulk add</button>
-      <button class="btn" id="btn-import">Import</button>
+      <div class="dropdown" id="import-dd">
+        <button class="btn" id="import-btn">Import <span class="dropdown-chevron">▾</span></button>
+        <div class="dropdown-menu" id="import-menu" hidden>
+          <button class="dropdown-item" id="import-file">Import file (.txt)</button>
+          <button class="dropdown-item" id="import-bulk">Bulk add</button>
+        </div>
+      </div>
       <button class="btn" id="btn-export">Export</button>
       <button class="btn btn-primary" id="btn-new">+ New</button>
     </div>
@@ -368,6 +373,11 @@
         <span class="label">Account type</span>
         <div id="gen-type-mount"></div>
       </div>
+      <label class="switch gen-auto-row">
+        <input type="checkbox" id="gen-auto" />
+        <span class="track"></span>
+        <span class="switch-label">Auto — keep generating each cooldown</span>
+      </label>
       <div class="modal-hint gen-status" id="gen-status"></div>
     </div>
     <div class="modal-foot">

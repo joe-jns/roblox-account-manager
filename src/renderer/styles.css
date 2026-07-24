@@ -684,9 +684,9 @@ input[type="checkbox"]:indeterminate::after {
   background: transparent;
   cursor: pointer;
   color: var(--muted-2);
-  font-size: 15px;
+  font-size: 19px;
   line-height: 1;
-  padding: 0 2px;
+  padding: 0 3px;
   flex: 0 0 auto;
 }
 .star-btn:hover { color: var(--amber); }
@@ -909,6 +909,7 @@ input[type="color"] {
 /* Generate dialog + Bloxgen key */
 .bloxgen-key { width: 220px; }
 .gen-field { display: flex; flex-direction: column; gap: 6px; }
+.gen-auto-row { margin-top: 14px; }
 .gen-status { margin-top: 14px; min-height: 18px; line-height: 1.5; }
 
 /* Custom dropdown (styled open list, unlike a native select) */

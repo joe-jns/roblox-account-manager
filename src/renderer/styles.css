@@ -106,7 +106,7 @@ input, textarea, select, button { font-family: inherit; }
   border-color: var(--focus);
   font-weight: 600;
 }
-.btn-primary:hover { filter: brightness(0.88); }
+.btn-primary:hover { background: var(--focus); border-color: var(--focus); filter: brightness(0.88); }
 
 .btn-ghost { background: transparent; }
 .btn-ghost:hover { background: var(--surface-2); }

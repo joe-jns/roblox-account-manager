@@ -54,13 +54,13 @@ function createWindow() {
     height: 760,
     minWidth: 900,
     minHeight: 560,
-    backgroundColor: '#0f1115',
+    backgroundColor: '#ffffff',
     title: 'Roblox Account Manager',
     autoHideMenuBar: true,
     titleBarStyle: 'hidden',
     titleBarOverlay: {
-      color: '#16191f',
-      symbolColor: '#c8ccd4',
+      color: '#f6f7f9',
+      symbolColor: '#1a1d23',
       height: 52,
     },
     webPreferences: {
@@ -446,7 +446,7 @@ ipcMain.handle('roblox:searchGames', async (_evt, query) => {
 });
 
 // Recolor the native window controls to match the current theme (Windows).
-let currentTheme = 'dark';
+let currentTheme = 'light';
 
 function overlayFor(theme, dim) {
   if (theme === 'light') {

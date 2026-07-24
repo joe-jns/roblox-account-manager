@@ -1092,14 +1092,14 @@ function saveSettings() {
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
 }
 const settings = loadSettings();
-if (!settings.theme) settings.theme = 'dark';
+settings.theme = 'light'; // light-only app
 if (settings.accent === undefined) settings.accent = null;
 if (settings.autoFetch === undefined) settings.autoFetch = true;
 if (settings.confirmDelete === undefined) settings.confirmDelete = true;
 if (settings.autoBackup === undefined) settings.autoBackup = false;
 if (settings.bloxgenKey === undefined) settings.bloxgenKey = '';
 
-function defaultAccent() { return settings.theme === 'light' ? '#E12028' : '#4d7cfe'; }
+function defaultAccent() { return '#E12028'; }
 
 function hexToRgba(hex, a) {
   const h = hex.replace('#', '');
@@ -1122,10 +1122,9 @@ function applyAccent(hex) {
 }
 
 function applyAppearance() {
-  document.documentElement.classList.toggle('theme-light', settings.theme === 'light');
-  window.api.setTheme(settings.theme);
+  document.documentElement.classList.add('theme-light');
+  window.api.setTheme('light');
   applyAccent(settings.accent);
-  document.querySelectorAll('#set-theme button').forEach((b) => b.classList.toggle('active', b.dataset.value === settings.theme));
 }
 
 function updateMpStatus(on) {
@@ -1141,7 +1140,6 @@ function switchSettingsPane(name) {
 
 function openSettings() {
   switchSettingsPane('appearance');
-  document.querySelectorAll('#set-theme button').forEach((b) => b.classList.toggle('active', b.dataset.value === settings.theme));
   $('#set-accent').value = settings.accent || defaultAccent();
   $('#set-autofetch').checked = settings.autoFetch;
   $('#set-confirm-delete').checked = settings.confirmDelete;
@@ -1368,14 +1366,6 @@ $('#settings-backdrop').addEventListener('click', closeSettings);
 $('#settings-nav').addEventListener('click', (e) => {
   const b = e.target.closest('.settings-navitem');
   if (b) switchSettingsPane(b.dataset.pane);
-});
-$('#set-theme').addEventListener('click', (e) => {
-  const btn = e.target.closest('button');
-  if (!btn) return;
-  settings.theme = btn.dataset.value;
-  saveSettings();
-  applyAppearance();
-  if (!settings.accent) $('#set-accent').value = defaultAccent();
 });
 $('#set-accent').addEventListener('input', (e) => {
   settings.accent = e.target.value;

@@ -226,16 +226,6 @@
           <div class="pane-title">Appearance</div>
           <div class="set-row">
             <div>
-              <div class="set-label">Theme</div>
-              <div class="set-desc">Dark, or light with a red accent.</div>
-            </div>
-            <div class="segmented" id="set-theme">
-              <button data-value="dark">Dark</button>
-              <button data-value="light">Light</button>
-            </div>
-          </div>
-          <div class="set-row">
-            <div>
               <div class="set-label">Accent color</div>
               <div class="set-desc">Custom highlight color.</div>
             </div>
@@ -373,12 +363,12 @@
         <span class="label">Account type</span>
         <div id="gen-type-mount"></div>
       </div>
-      <div class="gen-auto-row">
-        <label class="switch">
-          <input type="checkbox" id="gen-auto" />
-          <span class="track"></span>
-          <span class="switch-label">Auto — keep generating each cooldown</span>
-        </label>
+      <div class="set-row gen-auto-row">
+        <div>
+          <div class="set-label">Auto-generate</div>
+          <div class="set-desc">Keep generating each cooldown until you stop.</div>
+        </div>
+        <label class="switch"><input type="checkbox" id="gen-auto" /><span class="track"></span></label>
       </div>
       <div class="modal-hint gen-status" id="gen-status"></div>
     </div>

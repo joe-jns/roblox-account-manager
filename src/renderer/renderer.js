@@ -92,11 +92,11 @@ function createDropdown({ options, value, placeholder, onSelect }) {
 // ---- Model helpers ---------------------------------------------------------
 
 const STATUSES = ['Active', 'Banned'];
-const AGES = ['Unknown', '16-17', '18-20', '21+'];
+const AGES = ['Unknown', '9-12', '13-15', '16-17', '18-20', '21+'];
 const STATUS_MIGRATE = { Actif: 'Active', Averti: 'Active', Warned: 'Active', Banni: 'Banned' };
 const AGE_MIGRATE = { Inconnu: 'Unknown' };
 const STATUS_RANK = { Active: 0, Banned: 1 };
-const AGE_RANK = { Unknown: 0, '16-17': 1, '18-20': 2, '21+': 3 };
+const AGE_RANK = { Unknown: 0, '9-12': 1, '13-15': 2, '16-17': 3, '18-20': 4, '21+': 5 };
 
 function todayISO() {
   return new Date().toISOString().slice(0, 10);

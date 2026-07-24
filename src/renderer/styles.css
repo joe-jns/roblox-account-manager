@@ -1,26 +1,4 @@
 :root {
-  --bg: #0e1013;
-  --surface: #16191f;
-  --surface-2: #1b1f27;
-  --surface-3: #20242e;
-  --border: #262b34;
-  --border-strong: #333a46;
-  --text: #e7eaf0;
-  --muted: #929aa8;
-  --muted-2: #6b7280;
-  --focus: #4d7cfe;
-  --green: #3fb950;
-  --amber: #d29922;
-  --red: #f0553f;
-  --sel: rgba(77, 124, 254, 0.10);
-  --sel-strong: rgba(77, 124, 254, 0.35);
-  --radius: 7px;
-  --mono: "Cascadia Code", "Cascadia Mono", Consolas, ui-monospace, monospace;
-  --sans: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
-}
-
-/* Light theme — accent #E12028 */
-html.theme-light {
   --bg: #ffffff;
   --surface: #f6f7f9;
   --surface-2: #eef0f3;
@@ -36,6 +14,9 @@ html.theme-light {
   --red: #d92d20;
   --sel: rgba(225, 32, 40, 0.08);
   --sel-strong: rgba(225, 32, 40, 0.22);
+  --radius: 7px;
+  --mono: "Cascadia Code", "Cascadia Mono", Consolas, ui-monospace, monospace;
+  --sans: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
 }
 
 * { box-sizing: border-box; }
@@ -120,18 +101,18 @@ input, textarea, select, button { font-family: inherit; }
 .btn:active { transform: translateY(1px); }
 
 .btn-primary {
-  background: var(--text);
-  color: var(--bg);
-  border-color: var(--text);
+  background: var(--focus);
+  color: #fff;
+  border-color: var(--focus);
   font-weight: 600;
 }
-.btn-primary:hover { opacity: 0.88; }
+.btn-primary:hover { opacity: 0.9; }
 
 .btn-ghost { background: transparent; }
 .btn-ghost:hover { background: var(--surface-2); }
 
-.btn-danger { color: #ff9d90; border-color: #4a2b2b; background: transparent; }
-.btn-danger:hover { background: rgba(240, 85, 63, 0.12); border-color: var(--red); }
+.btn-danger { color: #b42318; border-color: #f1c9c4; background: transparent; }
+.btn-danger:hover { background: rgba(217, 45, 32, 0.10); border-color: var(--red); }
 
 /* ---- Body: sidebar + main ------------------------------------------------ */
 
@@ -349,7 +330,7 @@ input, textarea, select, button { font-family: inherit; }
 .drawer-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(6, 8, 11, 0.55);
+  background: rgba(20, 24, 30, 0.35);
   z-index: 40;
 }
 
@@ -361,7 +342,7 @@ input, textarea, select, button { font-family: inherit; }
   max-width: 92vw;
   background: var(--surface);
   border-left: 1px solid var(--border-strong);
-  box-shadow: -12px 0 40px rgba(0, 0, 0, 0.4);
+  box-shadow: -12px 0 40px rgba(0, 0, 0, 0.12);
   z-index: 41;
   display: flex;
   flex-direction: column;
@@ -516,7 +497,7 @@ select::-ms-expand { display: none; }
   background: var(--muted);
   transition: transform 0.15s, background 0.15s;
 }
-.switch input:checked + .track { background: rgba(63, 185, 80, 0.25); border-color: var(--green); }
+.switch input:checked + .track { background: rgba(26, 143, 60, 0.18); border-color: var(--green); }
 .switch input:checked + .track::after { transform: translateX(16px); background: var(--green); }
 .switch input:focus-visible + .track { border-color: var(--focus); }
 .switch-label { color: var(--text); font-size: 13px; }
@@ -618,7 +599,7 @@ select::-ms-expand { display: none; }
   border: 1px solid var(--border-strong);
   border-radius: 8px;
   font-size: 13px;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
   z-index: 60;
   animation: toast-in 0.15s ease;
 }
@@ -722,9 +703,9 @@ input[type="checkbox"]:indeterminate::after {
   padding: 1px 7px;
   font-size: 11px;
   border-radius: 4px;
-  color: #ffb3a8;
-  background: rgba(240, 85, 63, 0.14);
-  border: 1px solid #4a2b2b;
+  color: #b42318;
+  background: rgba(217, 45, 32, 0.10);
+  border: 1px solid #f1c9c4;
 }
 
 /* ---- Bulk action bar ----------------------------------------------------- */
@@ -752,7 +733,7 @@ input[type="checkbox"]:indeterminate::after {
 
 .modal-backdrop {
   position: fixed; inset: 0;
-  background: rgba(6, 8, 11, 0.55);
+  background: rgba(20, 24, 30, 0.35);
   z-index: 50;
 }
 .modal {
@@ -764,7 +745,7 @@ input[type="checkbox"]:indeterminate::after {
   background: var(--surface);
   border: 1px solid var(--border-strong);
   border-radius: 10px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
   z-index: 51;
   display: flex;
   flex-direction: column;
@@ -799,20 +780,6 @@ input[type="checkbox"]:indeterminate::after {
   padding: 12px 18px;
   border-top: 1px solid var(--border);
 }
-
-/* ---- Light-theme component tweaks --------------------------------------- */
-
-html.theme-light .btn-primary { background: var(--focus); color: #fff; border-color: var(--focus); }
-html.theme-light .btn-primary:hover { opacity: 0.9; }
-html.theme-light .btn-danger { color: #b42318; border-color: #f1c9c4; background: transparent; }
-html.theme-light .btn-danger:hover { background: rgba(217, 45, 32, 0.10); border-color: var(--red); }
-html.theme-light .rb-badge { color: #b42318; background: rgba(217, 45, 32, 0.10); border-color: #f1c9c4; }
-html.theme-light .switch input:checked + .track { background: rgba(26, 143, 60, 0.18); }
-html.theme-light .drawer { box-shadow: -12px 0 40px rgba(0, 0, 0, 0.12); }
-html.theme-light .modal { box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18); }
-html.theme-light .toast { box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15); }
-html.theme-light .drawer-backdrop,
-html.theme-light .modal-backdrop { background: rgba(20, 24, 30, 0.35); }
 
 /* ---- Settings ------------------------------------------------------------ */
 

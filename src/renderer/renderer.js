@@ -1122,7 +1122,6 @@ function applyAccent(hex) {
 }
 
 function applyAppearance() {
-  document.documentElement.classList.add('theme-light');
   window.api.setTheme('light');
   applyAccent(settings.accent);
 }

@@ -1,5 +1,17 @@
 'use strict';
 
+// ---- Changelog (add an entry for every new version) ------------------------
+const CHANGELOG = {
+  '1.2.8': [
+    'Auto-generate: keeps generating one account each cooldown (adapts to your Bloxgen grade). Stop anytime.',
+    'Generate window shows your Bloxgen balance and daily limit, with a low-balance warning.',
+    'Import / Export are now .txt (username:password). Import is a dropdown: from a file, or paste (Bulk add).',
+    'Favorites: star an account to pin it on top, and filter to favorites in the sidebar.',
+    'Full age ranges: 9-12, 13-15, 16-17, 18-20, 21+.',
+    'Light theme only — the dark theme was removed.',
+  ],
+};
+
 // ---- State -----------------------------------------------------------------
 
 let accounts = [];
@@ -1644,6 +1656,7 @@ document.addEventListener('keydown', (e) => {
   if (!$('#lock').hidden) return; // can't escape the lock screen
   if (!$('#pw-modal').hidden) { closePw(null); return; }
   if (document.querySelector('.dropdown.open')) { closeAllDropdowns(); return; }
+  if (!$('#whatsnew-modal').hidden) { closeWhatsNew(); return; }
   if (!$('#gen-modal').hidden) { closeGen(); return; }
   if (!$('#settings-modal').hidden) closeSettings();
   else if (!$('#bulk-modal').hidden) closeBulk();
@@ -1659,17 +1672,53 @@ function anyOverlayOpen() {
     || !$('#gen-modal').hidden
     || !$('#pw-modal').hidden
     || !$('#update-modal').hidden
+    || !$('#whatsnew-modal').hidden
     || !$('#lock').hidden;
 }
 (function watchOverlays() {
   const sync = () => window.api.overlayDim(anyOverlayOpen());
   const mo = new MutationObserver(sync);
-  ['#settings-modal', '#bulk-modal', '#gen-modal', '#pw-modal', '#update-modal', '#lock'].forEach((sel) => {
+  ['#settings-modal', '#bulk-modal', '#gen-modal', '#pw-modal', '#update-modal', '#whatsnew-modal', '#lock'].forEach((sel) => {
     const el = $(sel);
     if (el) mo.observe(el, { attributes: true, attributeFilter: ['hidden'] });
   });
   mo.observe(drawerEl, { attributes: true, attributeFilter: ['class'] });
 })();
+
+// ---- What's new ------------------------------------------------------------
+
+function showWhatsNew(version, notes) {
+  $('#whatsnew-title').textContent = `What's new in v${version}`;
+  const ul = $('#whatsnew-list');
+  ul.innerHTML = '';
+  for (const n of notes) { const li = document.createElement('li'); li.textContent = n; ul.appendChild(li); }
+  $('#whatsnew-backdrop').hidden = false;
+  $('#whatsnew-modal').hidden = false;
+}
+function closeWhatsNew() {
+  $('#whatsnew-backdrop').hidden = true;
+  $('#whatsnew-modal').hidden = true;
+}
+async function checkWhatsNew() {
+  let version;
+  try { version = await window.api.version(); } catch { return; }
+  if (settings.lastSeenVersion !== version) {
+    const notes = CHANGELOG[version];
+    // Show only when updating (there's a previous version), not on a fresh install.
+    if (notes && settings.lastSeenVersion) showWhatsNew(version, notes);
+    settings.lastSeenVersion = version;
+    saveSettings();
+  }
+}
+$('#whatsnew-close').addEventListener('click', closeWhatsNew);
+$('#whatsnew-backdrop').addEventListener('click', closeWhatsNew);
+$('#set-whatsnew').addEventListener('click', async () => {
+  const v = await window.api.version().catch(() => null);
+  const keys = Object.keys(CHANGELOG);
+  const notes = (v && CHANGELOG[v]) || (keys.length ? CHANGELOG[keys[0]] : null);
+  if (notes) showWhatsNew(v || keys[0], notes);
+  else toast('No changelog for this version');
+});
 
 // ---- Boot ------------------------------------------------------------------
 
@@ -1685,4 +1734,5 @@ function anyOverlayOpen() {
   accounts = (res.accounts || []).map(normalize);
   render();
   autoEnrich();
+  checkWhatsNew();
 })();
